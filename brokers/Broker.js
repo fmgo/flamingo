@@ -177,9 +177,10 @@ class Broker {
    *
    * @param {Object} opt
    * @param {Date} opt.utm
-   * @param {Object} opt.tick
-   * @param {Number} opt.tick.bid
-   * @param {Number} opt.tick.ask
+   * @param {Object} [opt.tick]
+   * @param {Number} [opt.tick.bid]
+   * @param {Number} [opt.tick.ask]
+   * @param {string} [opt.epic]
    * @param callback
    */
   getPosition(opt, callback) {
@@ -242,7 +243,9 @@ class Broker {
    * Get Current Account
    *
    * @param {Object} opt
-   * @param callback
+   * @param {Function} callback
+   * @param {Object} callback.error Error if any
+   * @param {Object} callback.account The Account
    */
   getAccount(opt, callback) {
     debug('Get account');
