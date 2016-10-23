@@ -1,0 +1,22 @@
+#idea config directory
+.idea
+
+# Dependency directories
+node_modules
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+#config file (IG credentials)
+*config.js
+
+#log files
+*.log
+
+docs
+
+dumps
+dump
