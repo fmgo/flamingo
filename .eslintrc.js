@@ -9,5 +9,9 @@ module.exports = {
   "rules": {
     "no-underscore-dangle": 0,
     "new-cap": 0,
+    "max-len": [2, 130, 2, {
+      "ignoreUrls": true,
+      "ignoreComments": false
+    }],
   },
 };
