@@ -4,6 +4,8 @@
  * MIT Licensed
  */
 
+const _ = require('lodash');
+
 /**
  * Calculate the position profit
  *
@@ -79,7 +81,49 @@ const isMarketOpen = (utm) => {
   return !((day === 5 && hour > 20) || day === 6 || (day === 7 && hour <= 20));
 };
 
+/**
+ * Calc expectancy according to the transactions
+ *
+ * @param {Array} transactions
+ * @returns {Object} results
+ */
+const calcExpectancy = (transactions) => {
+  const results = _.reduce(transactions, (res, trade) => {
+    const finalResult = res;
+    if (trade.currentProfit > 0) {
+      finalResult.win++;
+      finalResult.winProfit += trade.currentProfit;
+    } else {
+      finalResult.loose++;
+      finalResult.looseProfit += trade.currentProfit;
+    }
+    return res;
+  }, {
+    win: 0,
+    loose: 0,
+    winProfit: 0,
+    looseProfit: 0,
+  });
+
+  if (results.win > 0) {
+    results.averageWin = results.winProfit / results.win;
+  }
+
+  if (results.loose > 0) {
+    results.averageLoose = -1 * results.looseProfit / results.loose;
+  }
+
+  if (results.averageWin && results.averageLoose) {
+    results.percentWL = results.win / (results.win + results.loose);
+    results.excpectancy = (1 + (results.averageWin / results.averageLoose)) * results.percentWL - 1;
+  } else {
+    results.excpectancy = 0;
+  }
+  return results;
+};
+
 exports.getPipProfit = getPipProfit;
 exports.calcPositionSize = calcPositionSize;
 exports.calcPositionProfit = calcPositionProfit;
 exports.isMarketOpen = isMarketOpen;
+exports.calcExpectancy = calcExpectancy;
