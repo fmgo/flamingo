@@ -33,7 +33,7 @@ class Broker {
       balance,
       pnl: 0,
     };
-    this.position = position;
+    this.position = null;
   }
 
   /**
