@@ -97,6 +97,11 @@ async.waterfall([
         buildDbOpt.to = moment(btOpt.to);
       }
       database.buildQuotesCollection(buildDbOpt, (err, res) => {
+        if (err) {
+          log.error(err);
+          next(err);
+        }
+        log.info(res);
         next(err, res);
       });
     } else {
@@ -118,6 +123,7 @@ async.waterfall([
         next();
       });
     } else if (argv.l || argv.live) {
+      log.info('Start live trading');
       trader.start();
     } else {
       process.nextTick(() => {
