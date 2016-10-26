@@ -5,7 +5,7 @@
  */
 
 const mongodb = require('mongodb');
-const debug = require('debug');
+const log = require('winston');
 const moment = require('moment');
 const async = require('async');
 const config = require('../config');
@@ -19,12 +19,12 @@ let db = null;
  * @param cb
  */
 const connect = (mongoDbUrl = config.mongoDbUrl, cb) => {
-  debug('Connect to %s', mongoDbUrl);
+  log.verbose('Connect to %s', mongoDbUrl);
   mongodb.connect(mongoDbUrl, (err, _db) => {
     if (err) {
       cb(err);
     }
-    debug('MongoDB Connected');
+    log.verbose('MongoDB Connected');
     db = _db;
     cb(err, db);
   });
@@ -39,7 +39,7 @@ const connect = (mongoDbUrl = config.mongoDbUrl, cb) => {
  * @param cb
  */
 const getTick = (opt, cb) => {
-  debug('Get %s tick before or equal to %s', opt.epic, opt.utm.format());
+  log.verbose('Get %s tick before or equal to %s', opt.epic, opt.utm.format());
   db.collection('Tick')
     .find({
       epic: opt.epic,
@@ -63,7 +63,7 @@ const getTick = (opt, cb) => {
  */
 const getQuote = (opt, cb) => {
   const resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-  debug('Get %s quote (%s) before or equal to %s', opt.epic, resolution, opt.utm.format());
+  log.verbose('Get %s quote (%s) before or equal to %s', opt.epic, resolution, opt.utm.format());
   db.collection('Quote')
     .find({
       epic: opt.epic,
@@ -87,7 +87,7 @@ const getQuote = (opt, cb) => {
  */
 const getQuoteUtm = (opt, cb) => {
   const resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-  debug('Get %s quote (%s) with utm equal to %s', opt.epic, resolution, opt.utm.format());
+  log.verbose('Get %s quote (%s) with utm equal to %s', opt.epic, resolution, opt.utm.format());
   db.collection('Quote')
     .find({
       epic: opt.epic,
@@ -111,7 +111,7 @@ const getQuoteUtm = (opt, cb) => {
  */
 const getQuotes = (opt, cb) => {
   const resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-  debug('Get %d %s quote (%s) before  %s', opt.nbPoints, opt.epic, resolution, opt.utm.format());
+  log.verbose('Get %d %s quote (%s) before  %s', opt.nbPoints, opt.epic, resolution, opt.utm.format());
   db.collection('Quote')
     .find({
       epic: opt.epic,
@@ -195,7 +195,7 @@ const aggregateQuoteFromTick = (opt, cb) => {
       quote.epic = opt.epic;
       quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
       if (opt.upsert) {
-        debug('Persist quote');
+        log.verbose('Persist quote');
         db.collection('Quote').insertOne(quote);
       }
       cb(err, quote);
@@ -275,7 +275,7 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
       quote.epic = opt.epic;
       quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
       if (opt.upsert) {
-        debug('Persist quote');
+        log.verbose('Persist quote');
         db.collection('Quote').insertOne(quote);
       }
       cb(err, quote);
@@ -293,7 +293,7 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
  * @param cb
  */
 const buildQuotesCollection = (opt, cb) => {
-  debug('Build Quote collection');
+  log.verbose('Build Quote collection');
   const currentTime = moment(opt.from).seconds(0).milliseconds(0);
   let min = currentTime.get(opt.resolution.unit);
   min -= min % opt.resolution.nbUnit;
@@ -323,7 +323,7 @@ const buildQuotesCollection = (opt, cb) => {
  * @param {array} quotes
  */
 const upsertQuotes = (quotes) => {
-  debug('Save Quotes (%d)', quotes.length);
+  log.verbose('Save Quotes (%d)', quotes.length);
   quotes.forEach((quote) => {
     db.collection('Quote').updateOne({
       utm: moment(quote.utm),
