@@ -7,9 +7,9 @@
  */
 const _ = require('lodash');
 const request = require('request');
-const debug = require('debug')('igbroker');
 const async = require('async');
 const moment = require('moment');
+const log = require('winston');
 
 const Broker = require('./Broker');
 
@@ -27,7 +27,7 @@ const Broker = require('./Broker');
 class IGBroker extends Broker {
   constructor() {
     super();
-    debug('create IGBroker');
+    log.verbose('create IGBroker');
     this.urlRoot = 'https://demo-api.ig.com/gateway/deal';
     this.identifier = null;
     this.password = null;
@@ -105,7 +105,7 @@ class IGBroker extends Broker {
    * @param callback
    */
   login(identifier, password, apiKey, callback) {
-    debug('%s log in to IG', identifier);
+    log.verbose('%s log in to IG', identifier);
     this.apiKey = apiKey;
     request.post(
       `${this.urlRoot}/session`,
@@ -125,7 +125,7 @@ class IGBroker extends Broker {
           this.accountToken = response.headers['x-security-token'];
           this.clientToken = response.headers.cst;
           this.accountId = body.currentAccountId;
-          debug('Loged in to IG %s', this.accountId);
+          log.verbose('Loged in to IG %s', this.accountId);
           this.isLogged = true;
         }
         callback(error, body || { errorCode: error.message });
@@ -144,7 +144,7 @@ class IGBroker extends Broker {
    * @param callback
    */
   getPosition(opt, callback) {
-    debug('Get Position');
+    log.verbose('Get Position');
     const epic = opt.epic;
     const utm = opt.utm;
     request.get(`${this.urlRoot}/positions`,
@@ -188,12 +188,16 @@ class IGBroker extends Broker {
    * *See IG REST documentation: {@link https://labs.ig.com/rest-trading-api-reference/service-detail?id=397 /session}
    */
   getAccount(opt, callback) {
-    debug('Get Account');
+    log.verbose('Get Account');
     request.get(`${this.urlRoot}/accounts`,
       {
         headers: this.headers.v1,
         json: true,
       }, (error, response, body) => {
+        if (error) {
+          log.error(error);
+          callback(error);
+        }
         const account = {
           balance: body.accounts[0].balance.balance,
           pnl: body.accounts[0].balance.profitLoss,
@@ -209,7 +213,7 @@ class IGBroker extends Broker {
    * @param callback
    */
   openPosition(order, callback) {
-    debug('Open Position');
+    log.verbose('Open Position');
     const igOrder = {
       epic: order.epic,
       expiry: '-',
@@ -238,7 +242,7 @@ class IGBroker extends Broker {
    * @param callback
    */
   closePosition(position, callback) {
-    debug('Close Position');
+    log.verbose('Close Position');
     const igOrder = {
       dealId: position.dealId,
       epic: null,
@@ -275,7 +279,7 @@ class IGBroker extends Broker {
    * @param {getPricesCallback} callback
    */
   getQuotes(opt, callback) {
-    debug('Get Quotes');
+    log.verbose('Get Quotes');
     const query = opt.query;
     query.pageSize = 0;
     const quotes = [];

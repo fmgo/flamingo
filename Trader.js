@@ -167,7 +167,7 @@ class Trader {
     async.waterfall([
       (next) => {
         broker.updateContext(ctx, (err, updatedContext) => {
-          log.verbose('Updated Context to analyse', ctx);
+          log.verbose(`Updated Context to analyse ${ctx.market.epic} : ${ctx.utm.format()}`);
           next(err, broker, updatedContext);
         });
       },
@@ -197,7 +197,7 @@ class Trader {
    */
   checkStops(broker, ctx, callback) {
     const context = ctx;
-    log.verbose('Check stops', context);
+    log.verbose(`Check stops ${ctx.market.epic} : ${ctx.utm.format()}`);
     if (context.position) {
       const basePrice = 1 / context.position.currentPrice;
       context.position = fmgOutils.calcPositionProfit(context.position, basePrice);
@@ -223,7 +223,7 @@ class Trader {
         });
       }
     } else {
-      log.verbose('No Position to check', context);
+      log.verbose(`No Position to check ${context.utm.format()}`);
       process.nextTick(() => {
         callback(null, broker, ctx);
       });
@@ -247,7 +247,7 @@ class Trader {
      * if it cross the Sma
      */
     if (context.quote) {
-      log.verbose(`Calc Signals ${context.market.epic} ${context.utm.format()}`, context);
+      log.verbose(`Calc Signals ${context.market.epic} ${context.utm.format()}`);
       const epic = context.market.epic;
       const resolution = context.strategy.resolution;
       const nbPoints = context.strategy.sma + 1;
@@ -277,7 +277,7 @@ class Trader {
             callback(errSmaCrossPrice);
           }
           if (res.signal) {
-            log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.signal}`, { context, res });
+            log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.signal}`, res);
             context.smaCrossPrice = res.signal;
           }
           callback(null, broker, context);
@@ -308,7 +308,7 @@ class Trader {
     context.openOrder = null;
     context.closeOrder = null;
     if (context.smaCrossPrice) {
-      log.verbose(`Handle Signals ${context.smaCrossPrice}`, context);
+      log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
         log.verbose('New close order', context.closeOrder);
