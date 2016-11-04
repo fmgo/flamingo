@@ -55,6 +55,7 @@ class Broker {
         debug('Check if new quote available %s', context.utm.format());
         const newContext = context;
         newContext.quote = null;
+        newContext.closedPosition = null;
         // Check if it's time to analyse according to the strategy resolution
         const resolution = newContext.strategy.resolution;
         if (newContext.utm.get(resolution.unit) % resolution.nbUnit === 0) {
@@ -90,12 +91,14 @@ class Broker {
         const epic = newContext.market.epic;
         const utm = newContext.utm;
         this.getPrice({ epic, utm }, (err, prices) => {
-          if (err || !prices) {
+          if (err || !prices.bid || !prices.ask) {
+            console.log(prices);
+            process.exit(-1);
             return next(err || `Error getting prices for ${utm.format()}`);
           }
           newContext.bid = prices.bid;
           newContext.ask = prices.ask;
-          newContext.price = newContext.bid + (newContext.bid - newContext.ask);
+          newContext.price = newContext.bid + (newContext.ask - newContext.bid);
           return next(err, newContext);
         });
       },
