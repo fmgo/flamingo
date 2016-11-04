@@ -69,6 +69,8 @@ const getQuote = (opt, cb) => {
       epic: opt.epic,
       utm: { $lte: opt.utm.utc().toDate() },
       resolution,
+      bidClose: { $ne: null },
+      askClose: { $ne: null },
     }, opt.fields || {})
     .sort({ utm: -1 })
     .limit(1)
