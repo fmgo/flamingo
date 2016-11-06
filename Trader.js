@@ -265,7 +265,7 @@ class Trader {
           callback(err);
         }
         quotes.reverse();
-        const prices = _.map(quotes, 'askClose');
+        const prices = _.map(quotes, (quote) => quote.bidClose + ((quote.askClose - quote.bidClose) / 2));
         log.verbose('Check if price cross SMA', prices);
         /**
          * Check if the price cross the SMA, if it cross down set the signal to SELL

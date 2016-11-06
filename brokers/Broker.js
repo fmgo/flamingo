@@ -98,7 +98,7 @@ class Broker {
           }
           newContext.bid = prices.bid;
           newContext.ask = prices.ask;
-          newContext.price = newContext.bid + (newContext.ask - newContext.bid);
+          newContext.price = newContext.bid + ((newContext.ask - newContext.bid) / 2);
           return next(err, newContext);
         });
       },
