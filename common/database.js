@@ -197,7 +197,7 @@ const aggregateQuoteFromTick = (opt, cb) => {
       quote.epic = opt.epic;
       quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
       if (opt.upsert) {
-        log.verbose('Persist quote');
+        log.verbose('Persist quote', quote);
         db.collection('Quote').insertOne(quote);
       }
       cb(err, quote);
@@ -215,14 +215,14 @@ const aggregateQuoteFromTick = (opt, cb) => {
  */
 const aggregateQuoteFromMinuteQuote = (opt, cb) => {
   const resolution = opt.resolution;
-  const to = opt.utm.utc().toDate();
-  const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
-    .toDate();
+  // const to = opt.utm.utc().toDate();
+  // const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
+  //   .toDate();
   db.collection('Quote')
     .aggregate([{
       $match: {
         epic: opt.epic,
-        utm: { $gte: from, $lt: to },
+        utm: { $gte: opt.from.utc().toDate(), $lt: opt.to.utc().toDate() },
         resolution: '1MINUTE',
       },
     },
@@ -267,20 +267,25 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
       },
     ])
     .sort({ utm: -1 })
-    .limit(1)
-    .next((err, res) => {
+    .toArray((err, res) => {
       if (err || !res) {
         cb(err || 'No Quote aggregated');
+      } else {
+        async.each(res, (q, callback) => {
+          log.info(q);
+          const quote = q;
+          delete quote._id;
+          quote.epic = opt.epic;
+          quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
+          if (opt.upsert) {
+            log.verbose('Persist quote', quote);
+            db.collection('Quote').insertOne(quote);
+          }
+          callback(err);
+        }, (errorPersist) => {
+          cb(errorPersist, res);
+        });
       }
-      const quote = res;
-      delete quote._id;
-      quote.epic = opt.epic;
-      quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-      if (opt.upsert) {
-        log.verbose('Persist quote');
-        db.collection('Quote').insertOne(quote);
-      }
-      cb(err, quote);
     });
 };
 
@@ -311,10 +316,15 @@ const buildQuotesCollection = (opt, cb) => {
         epic: opt.epic,
         utm: currentTime,
         resolution: opt.resolution,
+        limit: 0,
         upsert: true,
       }, (err, quote) => {
-        currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
-        callback(err, quote);
+        if (!err || err === 'No Quote aggregated') {
+          currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
+          callback(null, quote);
+        } else {
+          callback(err);
+        }
       });
     }, cb);
 };
@@ -359,6 +369,7 @@ exports.getTick = getTick;
 exports.getQuote = getQuote;
 exports.getQuotes = getQuotes;
 exports.aggregateQuoteFromTick = aggregateQuoteFromTick;
+exports.aggregateQuoteFromMinuteQuote = aggregateQuoteFromMinuteQuote;
 exports.buildQuotesCollection = buildQuotesCollection;
 exports.upsertQuotes = upsertQuotes;
 exports.clean0Value = clean0Value;
