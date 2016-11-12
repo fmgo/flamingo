@@ -51,9 +51,9 @@ const strategy = {
  * Set the backtest options
  */
 const btOpt = {
-  from: '2016-09-12T21:10:00.000Z',
-  to: '2016-10-21T20:50:00.000Z',
-  balance: 4500,
+  from: '2016-11-05 21:59:00.000Z',
+  to: '2016-11-12 21:59:00.000Z',
+  balance: 1500,
 };
 
 /**
@@ -67,7 +67,11 @@ async.waterfall([
    * Connect the database
    */
   (next) => {
-    database.connect(config.mongoDbUrl, (err) => {
+    let url = config.mongoDbUrl;
+    if (argv.backtest) {
+      url = 'mongodb://localhost:27017/fmgo-backtest';
+    }
+    database.connect(url, (err) => {
       if (err) {
         log.error(err);
       }

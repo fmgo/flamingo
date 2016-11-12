@@ -202,9 +202,9 @@ class Trader {
       const basePrice = 1 / context.position.currentPrice;
       context.position = fmgOutils.calcPositionProfit(context.position, basePrice);
       if (context.position.currentProfit < context.strategy.stopLoss
-        || (context.position.maxProfit > 0
-        && context.position.currentProfit > 0
-        && (context.position.currentProfit - context.position.maxProfit) < context.strategy.trailingStop)
+        // || (context.position.maxProfit > 0
+        // && context.position.currentProfit > 0
+        // && (context.position.currentProfit - context.position.maxProfit) < context.strategy.trailingStop)
       ) {
         log.verbose('Stop position', context);
         broker.closePosition(context.position, (err, closedPosition) => {
