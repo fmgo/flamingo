@@ -4,6 +4,8 @@
  * MIT Licensed
  */
 const indicators = require('./indicators');
+const _ = require('lodash');
+const log = require('winston');
 
 /**
  * Callback for calcSma.
@@ -30,4 +32,33 @@ const smaCrossPrice = (prices, nbPoints, callback) => {
   });
 };
 
+const getStopPips = (data, nbPoints, ratio, callback) => {
+  const high = _.map(data, (quote) => parseFloat((quote.bidHigh + ((quote.askHigh - quote.bidHigh) / 2)).toFixed(5)));
+  const low = _.map(data, (quote) => parseFloat((quote.bidLow + ((quote.askLow - quote.bidLow) / 2)).toFixed(5)));
+  const close = _.map(data, (quote) => parseFloat((quote.bidClose + ((quote.askClose - quote.bidClose) / 2)).toFixed(5)));
+  indicators.calcAtr({ high, low, close }, nbPoints, (err, res) => {
+    if (err || !res) {
+      log.error(err || 'No Result');
+      callback(err || 'No Atr returned');
+    } else {
+      const stopPips = res * ratio;
+      callback(null, stopPips);
+    }
+  });
+};
+
+const getStopPrice = (data, position, nbPoints, ratio, callback) => {
+  getStopPips(data, nbPoints, ratio, (err, stopPips) => {
+    let stopPrice;
+    if (position.direction === 'BUY') {
+      stopPrice = Math.max((position.maxPrice - stopPips), position.openPrice - stopPips);
+    } else if (position.direction === 'SELL') {
+      stopPrice = Math.min((position.minPrice + stopPips), position.openPrice + stopPips);
+    }
+    callback(null, stopPrice);
+  });
+};
+
 exports.smaCrossPrice = smaCrossPrice;
+exports.getStopPrice = getStopPrice;
+exports.getStopPips = getStopPips;

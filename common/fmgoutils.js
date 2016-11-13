@@ -122,8 +122,19 @@ const calcExpectancy = (transactions) => {
   return results;
 };
 
+const isPositionStopped = (position) => {
+  let isStopped = false;
+  if (position.direction === 'BUY' && position.currentPrice <= position.stopPrice) {
+    isStopped = true;
+  } else if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
+    isStopped = true;
+  }
+  return isStopped;
+};
+
 exports.getPipProfit = getPipProfit;
 exports.calcPositionSize = calcPositionSize;
 exports.calcPositionProfit = calcPositionProfit;
 exports.isMarketOpen = isMarketOpen;
 exports.calcExpectancy = calcExpectancy;
+exports.isPositionStopped = isPositionStopped;

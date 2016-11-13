@@ -205,6 +205,59 @@ const aggregateQuoteFromTick = (opt, cb) => {
 };
 
 /**
+ * Aggregate a Quote from tick collection according to the utm and resolution
+ *
+ * @param {object} position
+ * @param cb
+ */
+const getMinMaxPricePosition = (position, cb) => {
+  const to = position.currentDate;
+  const from = position.openDate;
+  db.collection('Quote')
+    .aggregate([{
+      $match: {
+        epic: position.epic,
+        utm: { $gte: from, $lt: to },
+        resolution: '1MINUTE',
+      },
+    },
+      {
+        $project: {
+          askHigh: 1,
+          askLow: 1,
+          bidHigh: 1,
+          bidLow: 1,
+        },
+      },
+      {
+        $group: {
+          _id: position.epic,
+          askHigh: { $max: '$askHigh' },
+          askLow: { $min: '$askLow' },
+          bidHigh: { $max: '$bidHigh' },
+          bidLow: { $min: '$bidLow' },
+        },
+      },
+    ])
+    .limit(1)
+    .next((err, res) => {
+      if (err || !res) {
+        log.error(err);
+        cb(err || 'No Min Max price found');
+      }
+      const result = {};
+      if (position.direction === 'BUY') {
+        result.maxPrice = res.bidHigh;
+        result.minPrice = res.bidLow;
+      } else if (position.direction === 'SELL') {
+        result.maxPrice = res.askHigh;
+        result.minPrice = res.askLow;
+      }
+      cb(err, result);
+    });
+};
+
+/**
  * Aggregate a Quote from Quote collection (MINUTE) according to the utm and resolution
  *
  * @param {object} opt
@@ -359,6 +412,7 @@ exports.getTick = getTick;
 exports.getQuote = getQuote;
 exports.getQuotes = getQuotes;
 exports.aggregateQuoteFromTick = aggregateQuoteFromTick;
+exports.getMinMaxPricePosition = getMinMaxPricePosition;
 exports.buildQuotesCollection = buildQuotesCollection;
 exports.upsertQuotes = upsertQuotes;
 exports.clean0Value = clean0Value;

@@ -71,6 +71,7 @@ const calcCross = (prevValShort, prevValLong, currentValShort, currentValLong) =
  * @param {calcSmaCallback} callback - A callback to run.
  */
 const calcSma = (data, nbPoints, callback) => {
+
   talib.execute({
     name: 'SMA',
     startIdx: 0,
@@ -84,8 +85,41 @@ const calcSma = (data, nbPoints, callback) => {
 };
 
 /**
+ * Callback for calcAtr.
+ *
+ * @callback calcAtrCallback
+ * @param {String} [error=null] - Error first.
+ * @param {Array} sma - The average true range.
+ */
+/**
+ * Calc average true range for the quotes passed in params
+ *
+ * @param {Object} data The Array of quotes to calc
+ * @param {Number} nbPoints Number of points for the average
+ * @param {calcAtrCallback} callback - A callback to run.
+ */
+const calcAtr = (data, nbPoints, callback) => {
+  const high = data.high;
+  const low = data.low;
+  const close = data.close;
+  talib.execute({
+    name: 'ATR',
+    high,
+    low,
+    close,
+    startIdx: 0,
+    endIdx: close.length - 1,
+    optInTimePeriod: nbPoints,
+  }, (result) => {
+    const atr = result.result.outReal;
+    callback(null, atr[atr.length - 1]);
+  });
+};
+
+/**
  * Exports API
  */
 exports.calcAverage = calcAverage;
 exports.calcCross = calcCross;
 exports.calcSma = calcSma;
+exports.calcAtr = calcAtr;
