@@ -415,7 +415,10 @@ class Trader {
      */
     context.openOrder = null;
     context.closeOrder = null;
-    if (context.smaCrossPrice && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)) {
+    if (context.smaCrossPrice
+      && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)
+      && context.utm.get('hour') < 22
+    ) {
       log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
