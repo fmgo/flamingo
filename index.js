@@ -44,16 +44,18 @@ const strategy = {
   resolution: { unit: 'minute', nbUnit: 15 },
   stopLoss: -7,
   trailingStop: -7,
-  risk: 0.03,
+  risk: 0.05,
+  atr: 14,
+  atrRatio: 2.7,
 };
 
 /**
  * Set the backtest options
  */
 const btOpt = {
-  from: '2016-09-12T21:10:00.000Z',
-  to: '2016-10-21T20:50:00.000Z',
-  balance: 4500,
+  from: '2016-09-13T00:00:00.000Z',
+  to: '2016-11-11T00:00:00.000Z',
+  balance: 1500,
 };
 
 /**

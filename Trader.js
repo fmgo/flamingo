@@ -146,11 +146,13 @@ class Trader {
       (err) => {
         if (err) {
           done(err);
+        } else {
+          log.verbose(`Activities (${activities.length})`, activities);
+          log.info(`Transactions (${transactions.length})`, transactions);
+          const results = fmgOutils.calcExpectancy(transactions);
+          log.info(reports[reports.length - 1]);
+          done(null, results);
         }
-        log.verbose(`Activities (${activities.length})`, activities);
-        log.verbose(`Transactions (${transactions.length})`, transactions);
-        const results = fmgOutils.calcExpectancy(transactions);
-        done(null, results);
       });
   }
 
@@ -192,41 +194,79 @@ class Trader {
    * 3 - Update the context
    *
    * @param broker
-   * @param ctx
+   * @param ctxToCheck
    * @param callback
    */
-  checkStops(broker, ctx, callback) {
-    const context = ctx;
-    log.verbose(`Check stops ${ctx.market.epic} : ${ctx.utm.format()}`);
-    if (context.position) {
-      const basePrice = 1 / context.position.currentPrice;
-      context.position = fmgOutils.calcPositionProfit(context.position, basePrice);
-      if (context.position.currentProfit < context.strategy.stopLoss
-        || (context.position.maxProfit > 0
-        && context.position.currentProfit > 0
-        && (context.position.currentProfit - context.position.maxProfit) < context.strategy.trailingStop)
-      ) {
-        log.verbose('Stop position', context);
-        broker.closePosition(context.position, (err, closedPosition) => {
-          if (err) {
-            log.error('Error closing position', err);
-            callback(err);
-          }
-          context.closedPosition = closedPosition;
-          context.position = null;
-          log.verbose(`Position stopped ${context.closedPosition.currentProfit}`, context.closedPosition);
-          callback(err, broker, context);
-        });
-      } else {
-        process.nextTick(() => {
-          callback(null, broker, ctx);
-        });
-      }
-    } else {
-      log.verbose(`No Position to check ${context.utm.format()}`);
+  checkStops(broker, ctxToCheck, callback) {
+    log.verbose(`Check stops ${ctxToCheck.market.epic} : ${ctxToCheck.utm.format()}`);
+    if (!ctxToCheck.position) {
+      log.verbose(`No Position to check ${ctxToCheck.utm.format()}`);
       process.nextTick(() => {
-        callback(null, broker, ctx);
+        callback(null, broker, ctxToCheck);
       });
+    } else {
+      async.waterfall([
+        (next) => {
+          const context = ctxToCheck;
+          const basePrice = 1 / context.position.currentPrice;
+          context.position = fmgOutils.calcPositionProfit(context.position, basePrice);
+          database.getMinMaxPricePosition(context.position, (err, result) => {
+            if (err || !result) {
+              return next(err || 'Error getting min max prices for position');
+            }
+            context.position.minPrice = result.minPrice;
+            context.position.maxPrice = result.maxPrice;
+            return next(err, context);
+          });
+        },
+        (ctx, next) => {
+          const context = ctx;
+          const epic = context.market.epic;
+          const resolution = context.strategy.resolution;
+          const nbPoints = context.strategy.atr;
+          const ratio = context.strategy.atrRatio;
+
+          database.getQuotes({
+            epic,
+            resolution,
+            nbPoints: nbPoints * 2,
+            utm: context.utm.clone(),
+          }, (err, quotes) => {
+            if (err) {
+              log.error(err);
+              callback(err);
+            }
+            quotes.reverse();
+            signals.getStopPrice(quotes, context.position, nbPoints, ratio, (errStopPrice, stopPrice) => {
+              if (errStopPrice || !stopPrice) {
+                log.error(errStopPrice);
+                next(errStopPrice);
+              }
+              context.position.stopPrice = stopPrice;
+              next(errStopPrice, context);
+            });
+          });
+        },
+        (ctx, next) => {
+          const context = ctx;
+          const isStopped = fmgOutils.isPositionStopped(context.position);
+          if (isStopped) {
+            log.verbose('Stop position', context);
+            broker.closePosition(context.position, (err, closedPosition) => {
+              if (err) {
+                log.error('Error closing position', err);
+                callback(err);
+              }
+              context.closedPosition = closedPosition;
+              context.position = null;
+              log.verbose(`Position stopped ${context.closedPosition.currentProfit}`, context.closedPosition);
+              callback(err, broker, context);
+            });
+          } else {
+            next(null, broker, context);
+          }
+        },
+      ], callback);
     }
   }
 
@@ -318,33 +358,62 @@ class Trader {
          * Calc the position size according to
          * the context strategy and the current price
          */
-        const size = fmgOutils.calcPositionSize(
-          context.account.balance,
-          context.ask || context.bid,
-          context.strategy.risk,
-          context.strategy.stopLoss,
-          context.market.lotSize
-        );
+        const epic = context.market.epic;
+        const resolution = context.strategy.resolution;
+        const nbPoints = context.strategy.atr;
+        const ratio = context.strategy.atrRatio;
 
-        /**
-         * Create the open order
-         */
-        context.openOrder = {
-          utm: context.utm.toDate(),
-          direction: context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL',
-          epic: context.market.epic,
-          market: context.market,
-          bid: context.bid,
-          ask: context.ask,
-          size,
-          currencyCode: context.market.currencyCode,
-        };
-        log.debug('New open order', context.openOrder);
+        database.getQuotes({
+          epic,
+          resolution,
+          nbPoints: nbPoints * 2,
+          utm: context.utm.clone(),
+        }, (err, quotes) => {
+          if (err) {
+            log.error(err);
+            callback(err);
+          }
+          quotes.reverse();
+          signals.getStopPips(quotes, nbPoints, ratio, (errStopPrice, stopPips) => {
+            if (errStopPrice || !stopPips) {
+              log.error(errStopPrice);
+              callback(errStopPrice);
+            }
+            const size = fmgOutils.calcPositionSize(
+              context.account.balance,
+              context.ask || context.bid,
+              context.strategy.risk,
+              stopPips * 10000,
+              context.market.lotSize
+            );
+
+            /**
+             * Create the open order
+             */
+            context.openOrder = {
+              utm: context.utm.toDate(),
+              direction: context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL',
+              epic: context.market.epic,
+              market: context.market,
+              bid: context.bid,
+              ask: context.ask,
+              size,
+              currencyCode: context.market.currencyCode,
+            };
+            log.debug('New open order', context.openOrder);
+            callback(null, broker, context);
+          });
+        });
+      } else {
+        process.nextTick(() => {
+          callback(null, broker, context);
+        });
       }
+    } else {
+      process.nextTick(() => {
+        callback(null, broker, context);
+      });
     }
-    process.nextTick(() => {
-      callback(null, broker, context);
-    });
   }
 
   /**
@@ -421,6 +490,7 @@ class Trader {
       smaCrossPrice: context.smaCrossPrice,
     };
     log.verbose('Result Analyse:', report);
+    log.info(`${report.utm} : ${report.balance.toFixed(0)} (${position ? position.currentProfit : '-'})`);
     if (callback) {
       process.nextTick(() => {
         callback(null, report);
