@@ -119,25 +119,32 @@ class Trader {
        * then add a minute to the context utm until the context utm is after endTime.
        */
       (callback) => {
-        self.analyse(broker, context, (errAnalyse, ctxAnalysed) => {
-          if (errAnalyse) {
-            callback(errAnalyse);
-          }
-          if (ctxAnalysed.closeOrder !== null) {
-            activities.push(ctxAnalysed.closeOrder);
-          }
-          if (ctxAnalysed.openOrder !== null) {
-            activities.push(ctxAnalysed.openOrder);
-          }
-          if (ctxAnalysed.closedPosition) {
-            transactions.push(ctxAnalysed.closedPosition);
-          }
-          self.logReport(ctxAnalysed, (errReport, report) => {
-            reports.push(report);
-            context.utm.add(1, 'minute');
-            callback(errReport);
+        if (fmgOutils.isMarketOpen(context.utm)) {
+          self.analyse(broker, context, (errAnalyse, ctxAnalysed) => {
+            if (errAnalyse) {
+              callback(errAnalyse);
+            }
+            if (ctxAnalysed.closeOrder !== null) {
+              activities.push(ctxAnalysed.closeOrder);
+            }
+            if (ctxAnalysed.openOrder !== null) {
+              activities.push(ctxAnalysed.openOrder);
+            }
+            if (ctxAnalysed.closedPosition) {
+              transactions.push(ctxAnalysed.closedPosition);
+            }
+            self.logReport(ctxAnalysed, (errReport, report) => {
+              reports.push(report);
+              context.utm.add(1, 'minute');
+              callback(errReport);
+            });
           });
-        });
+        } else {
+          process.nextTick(() => {
+            context.utm.add(2, 'day');
+            callback();
+          });
+        }
       },
       /**
        * Log the reports, activities and transactions and callback
@@ -251,7 +258,7 @@ class Trader {
         (ctx, next) => {
           const context = ctx;
           const isStopped = fmgOutils.isPositionStopped(context.position);
-          if (isStopped || context.utm.get('hour') >= context.strategy.stopHour) {
+          if (isStopped) {
             log.verbose('Stop position', context);
             broker.closePosition(context.position, (err, closedPosition) => {
               if (err) {
@@ -287,7 +294,7 @@ class Trader {
      * If there is a new quote we check
      * if it is Below or above the current trend SMA
      */
-    if (context.quote && context.smaCrossPrice) {
+    if (context.quote && context.smaCrossPrice && context.strategy.smaTrend) {
       log.verbose(`Calc Trend ${context.market.epic} ${context.utm.format()}`);
       const epic = context.market.epic;
       const resolution = context.strategy.resolution;
@@ -408,9 +415,7 @@ class Trader {
      */
     context.openOrder = null;
     context.closeOrder = null;
-    if (context.smaCrossPrice && context.smaCrossPrice === context.trend &&
-      context.utm.get('hour') >= context.strategy.startHour && context.utm.get('hour') < context.strategy.stopHour
-    ) {
+    if (context.smaCrossPrice && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)) {
       log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
@@ -554,7 +559,7 @@ class Trader {
     };
     log.verbose('Result Analyse:', report);
     if (context.utm.get('minute') === 0) {
-      log.info(`${report.utm} : ${report.balance.toFixed(0)}`);
+      log.info(`${report.utm} : ${report.balance.toFixed(0)} ${fmgOutils.isMarketOpen(moment(report.utm)) ? 'OPEN' : 'CLOSE'}`);
     }
     if (callback) {
       process.nextTick(() => {
