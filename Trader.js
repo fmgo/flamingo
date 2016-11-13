@@ -119,25 +119,32 @@ class Trader {
        * then add a minute to the context utm until the context utm is after endTime.
        */
       (callback) => {
-        self.analyse(broker, context, (errAnalyse, ctxAnalysed) => {
-          if (errAnalyse) {
-            callback(errAnalyse);
-          }
-          if (ctxAnalysed.closeOrder !== null) {
-            activities.push(ctxAnalysed.closeOrder);
-          }
-          if (ctxAnalysed.openOrder !== null) {
-            activities.push(ctxAnalysed.openOrder);
-          }
-          if (ctxAnalysed.closedPosition) {
-            transactions.push(ctxAnalysed.closedPosition);
-          }
-          self.logReport(ctxAnalysed, (errReport, report) => {
-            reports.push(report);
-            context.utm.add(1, 'minute');
-            callback(errReport);
+        if (fmgOutils.isMarketOpen(context.utm)) {
+          self.analyse(broker, context, (errAnalyse, ctxAnalysed) => {
+            if (errAnalyse) {
+              callback(errAnalyse);
+            }
+            if (ctxAnalysed.closeOrder !== null) {
+              activities.push(ctxAnalysed.closeOrder);
+            }
+            if (ctxAnalysed.openOrder !== null) {
+              activities.push(ctxAnalysed.openOrder);
+            }
+            if (ctxAnalysed.closedPosition) {
+              transactions.push(ctxAnalysed.closedPosition);
+            }
+            self.logReport(ctxAnalysed, (errReport, report) => {
+              reports.push(report);
+              context.utm.add(1, 'minute');
+              callback(errReport);
+            });
           });
-        });
+        } else {
+          process.nextTick(() => {
+            context.utm.add(2, 'day');
+            callback();
+          });
+        }
       },
       /**
        * Log the reports, activities and transactions and callback
@@ -175,6 +182,7 @@ class Trader {
       },
       self.checkStops,
       self.calcSignals,
+      self.calcTrend,
       self.handleSignals,
       self.handleOrders,
     ], (err, context) => {
@@ -271,6 +279,66 @@ class Trader {
   }
 
   /**
+   * Calc Trend
+   * Get Quotes needed to calc the indicators
+   * Check the current Trend
+   *
+   * @param broker
+   * @param ctx
+   * @param callback
+   */
+  calcTrend(broker, ctx, callback) {
+    const context = ctx;
+    context.trend = null;
+    /**
+     * If there is a new quote we check
+     * if it is Below or above the current trend SMA
+     */
+    if (context.quote && context.smaCrossPrice && context.strategy.smaTrend) {
+      log.verbose(`Calc Trend ${context.market.epic} ${context.utm.format()}`);
+      const epic = context.market.epic;
+      const resolution = context.strategy.resolution;
+      const nbPoints = context.strategy.smaTrend;
+      /**
+       * Get quotes needed to calc the SMA
+       */
+      database.getQuotes({
+        epic,
+        resolution,
+        nbPoints,
+        utm: context.utm.clone(),
+      }, (err, quotes) => {
+        if (err) {
+          log.error(err);
+          callback(err);
+        }
+        quotes.reverse();
+        const prices = _.map(quotes, (quote) => quote.bidClose + ((quote.askClose - quote.bidClose) / 2));
+        log.verbose('Check if price is Below Or Above');
+        /**
+         * Check if the price cross the SMA, if it cross down set the signal to SELL
+         * if it cross up set the signal to BUY, else set the signal to null
+         */
+        signals.calcTrend(prices, nbPoints, (errSmaCrossPrice, res) => {
+          if (errSmaCrossPrice) {
+            log.error(errSmaCrossPrice);
+            callback(errSmaCrossPrice);
+          }
+          if (res.trend) {
+            log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.trend}`, res);
+            context.trend = res.trend;
+          }
+          callback(null, broker, context);
+        });
+      });
+    } else {
+      process.nextTick(() => {
+        callback(null, broker, ctx);
+      });
+    }
+  }
+
+  /**
    * Calc BUY/SELL Signals
    * Get Quotes needed to calc the indicators
    * and generate a BUY or SELL Signal
@@ -347,7 +415,10 @@ class Trader {
      */
     context.openOrder = null;
     context.closeOrder = null;
-    if (context.smaCrossPrice) {
+    if (context.smaCrossPrice
+      && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)
+      && context.utm.get('hour') < 22
+    ) {
       log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
@@ -490,7 +561,9 @@ class Trader {
       smaCrossPrice: context.smaCrossPrice,
     };
     log.verbose('Result Analyse:', report);
-    log.info(`${report.utm} : ${report.balance.toFixed(0)} (${position ? position.currentProfit : '-'})`);
+    if (context.utm.get('minute') === 0) {
+      log.info(`${report.utm} : ${report.balance.toFixed(0)} ${fmgOutils.isMarketOpen(moment(report.utm)) ? 'OPEN' : 'CLOSE'}`);
+    }
     if (callback) {
       process.nextTick(() => {
         callback(null, report);

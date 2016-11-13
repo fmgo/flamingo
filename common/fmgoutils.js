@@ -5,6 +5,7 @@
  */
 
 const _ = require('lodash');
+const moment = require('moment');
 
 /**
  * Calculate the position profit
@@ -127,6 +128,8 @@ const isPositionStopped = (position) => {
   if (position.direction === 'BUY' && position.currentPrice <= position.stopPrice) {
     isStopped = true;
   } else if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
+    isStopped = true;
+  } else if (moment(position.currentDate).get('hour') >= 21 && moment(position.currentDate).get('minute') >= 45) {
     isStopped = true;
   }
   return isStopped;

@@ -41,20 +41,23 @@ const market = {
  */
 const strategy = {
   sma: 35,
+  smaTrend: false,
   resolution: { unit: 'minute', nbUnit: 15 },
   stopLoss: -7,
   trailingStop: -7,
   risk: 0.05,
   atr: 14,
   atrRatio: 2.7,
+  startHour: 0,
+  stopHour: 23,
 };
 
 /**
  * Set the backtest options
  */
 const btOpt = {
-  from: '2016-09-13T00:00:00.000Z',
-  to: '2016-11-11T00:00:00.000Z',
+  from: '2016-11-01T00:00:00.000Z',
+  to: '2016-11-12T00:00:00.000Z',
   balance: 1500,
 };
 
