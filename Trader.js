@@ -175,6 +175,7 @@ class Trader {
       },
       self.checkStops,
       self.calcSignals,
+      self.calcTrend,
       self.handleSignals,
       self.handleOrders,
     ], (err, context) => {
@@ -250,7 +251,7 @@ class Trader {
         (ctx, next) => {
           const context = ctx;
           const isStopped = fmgOutils.isPositionStopped(context.position);
-          if (isStopped) {
+          if (isStopped || context.utm.get('hour') >= context.strategy.stopHour) {
             log.verbose('Stop position', context);
             broker.closePosition(context.position, (err, closedPosition) => {
               if (err) {
@@ -267,6 +268,66 @@ class Trader {
           }
         },
       ], callback);
+    }
+  }
+
+  /**
+   * Calc Trend
+   * Get Quotes needed to calc the indicators
+   * Check the current Trend
+   *
+   * @param broker
+   * @param ctx
+   * @param callback
+   */
+  calcTrend(broker, ctx, callback) {
+    const context = ctx;
+    context.trend = null;
+    /**
+     * If there is a new quote we check
+     * if it is Below or above the current trend SMA
+     */
+    if (context.quote && context.smaCrossPrice) {
+      log.verbose(`Calc Trend ${context.market.epic} ${context.utm.format()}`);
+      const epic = context.market.epic;
+      const resolution = context.strategy.resolution;
+      const nbPoints = context.strategy.smaTrend;
+      /**
+       * Get quotes needed to calc the SMA
+       */
+      database.getQuotes({
+        epic,
+        resolution,
+        nbPoints,
+        utm: context.utm.clone(),
+      }, (err, quotes) => {
+        if (err) {
+          log.error(err);
+          callback(err);
+        }
+        quotes.reverse();
+        const prices = _.map(quotes, (quote) => quote.bidClose + ((quote.askClose - quote.bidClose) / 2));
+        log.verbose('Check if price is Below Or Above');
+        /**
+         * Check if the price cross the SMA, if it cross down set the signal to SELL
+         * if it cross up set the signal to BUY, else set the signal to null
+         */
+        signals.calcTrend(prices, nbPoints, (errSmaCrossPrice, res) => {
+          if (errSmaCrossPrice) {
+            log.error(errSmaCrossPrice);
+            callback(errSmaCrossPrice);
+          }
+          if (res.trend) {
+            log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.trend}`, res);
+            context.trend = res.trend;
+          }
+          callback(null, broker, context);
+        });
+      });
+    } else {
+      process.nextTick(() => {
+        callback(null, broker, ctx);
+      });
     }
   }
 
@@ -347,7 +408,9 @@ class Trader {
      */
     context.openOrder = null;
     context.closeOrder = null;
-    if (context.smaCrossPrice) {
+    if (context.smaCrossPrice && context.smaCrossPrice === context.trend &&
+      context.utm.get('hour') >= context.strategy.startHour && context.utm.get('hour') < context.strategy.stopHour
+    ) {
       log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
@@ -490,7 +553,9 @@ class Trader {
       smaCrossPrice: context.smaCrossPrice,
     };
     log.verbose('Result Analyse:', report);
-    log.info(`${report.utm} : ${report.balance.toFixed(0)} (${position ? position.currentProfit : '-'})`);
+    if (context.utm.get('minute') === 0) {
+      log.info(`${report.utm} : ${report.balance.toFixed(0)}`);
+    }
     if (callback) {
       process.nextTick(() => {
         callback(null, report);

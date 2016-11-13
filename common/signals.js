@@ -47,6 +47,18 @@ const getStopPips = (data, nbPoints, ratio, callback) => {
   });
 };
 
+const calcTrend = (prices, nbPoints, callback) => {
+  indicators.calcSma(prices, nbPoints, (err, sma) => {
+    const currentPrice = prices[prices.length - 1];
+    const currentSma = sma[sma.length - 1];
+    let trend = null;
+    if (currentSma) {
+      trend = currentPrice >= currentSma ? 'XUP' : 'XDOWN';
+    }
+    callback(null, { trend, meta: { currentPrice, currentSma } });
+  });
+};
+
 const getStopPrice = (data, position, nbPoints, ratio, callback) => {
   getStopPips(data, nbPoints, ratio, (err, stopPips) => {
     let stopPrice;
@@ -62,3 +74,4 @@ const getStopPrice = (data, position, nbPoints, ratio, callback) => {
 exports.smaCrossPrice = smaCrossPrice;
 exports.getStopPrice = getStopPrice;
 exports.getStopPips = getStopPips;
+exports.calcTrend = calcTrend;
