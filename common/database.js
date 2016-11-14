@@ -211,13 +211,13 @@ const aggregateQuoteFromTick = (opt, cb) => {
  * @param cb
  */
 const getMinMaxPricePosition = (position, cb) => {
-  const to = position.currentDate;
-  const from = position.openDate;
+  const to = moment(position.currentDate).toDate();
+  const from = moment(position.openDate).toDate();
   db.collection('Quote')
     .aggregate([{
       $match: {
         epic: position.epic,
-        utm: { $gte: from, $lt: to },
+        utm: { $gt: from, $lt: to },
         resolution: '1MINUTE',
       },
     },
@@ -253,6 +253,7 @@ const getMinMaxPricePosition = (position, cb) => {
         result.maxPrice = res.askHigh;
         result.minPrice = res.askLow;
       }
+      log.info(result);
       cb(err, result);
     });
 };
