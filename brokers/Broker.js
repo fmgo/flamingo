@@ -132,7 +132,9 @@ class Broker {
             return next(err);
           }
           newContext.position = pos;
-          newContext.position.targetProfit = this.dailyAnalyse.targetProfit;
+          if (newContext.position) {
+            newContext.position.targetProfit = this.dailyAnalyse.targetProfit;
+          }
           return next(err, newContext);
         });
       },
