@@ -41,7 +41,7 @@ const market = {
  */
 const strategy = {
   sma: 35,
-  smaTrend: false,
+  smaTrend: 200,
   resolution: { unit: 'minute', nbUnit: 15 },
   stopLoss: -7,
   trailingStop: -7,

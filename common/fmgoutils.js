@@ -125,11 +125,16 @@ const calcExpectancy = (transactions) => {
 
 const isPositionStopped = (position) => {
   let isStopped = false;
+  if (position.currentProfit >= position.targetProfit) {
+    isStopped = true;
+  }
   if (position.direction === 'BUY' && position.currentPrice <= position.stopPrice) {
     isStopped = true;
-  } else if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
+  }
+  if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
     isStopped = true;
-  } else if (moment(position.currentDate).get('hour') >= 21 && moment(position.currentDate).get('minute') >= 45) {
+  }
+  if (moment(position.currentDate).get('hour') >= 21 && moment(position.currentDate).get('minute') >= 45) {
     isStopped = true;
   }
   return isStopped;

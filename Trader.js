@@ -418,6 +418,7 @@ class Trader {
     if (context.smaCrossPrice
       && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)
       && context.utm.get('hour') < 22
+      && context.utm.get('hour') >= 6
     ) {
       log.verbose(`Handle Signals ${context.smaCrossPrice}`);
       if (context.position && context.position.direction !== context.smaCrossPrice) {

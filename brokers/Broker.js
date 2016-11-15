@@ -33,6 +33,9 @@ class Broker {
       balance,
       pnl: 0,
     };
+    this.dailyAnalyse = {
+      targetProfit: 35,
+    };
     this.position = null;
   }
 
@@ -47,11 +50,24 @@ class Broker {
 
     async.waterfall([
       /**
+       * Update DailyAnalyse if needed
+       * @param next
+       */
+      (next) => {
+        // Check if last dayliAnalysis day is different from current utm...
+          // Upsert New Daily Quote...
+          // Get Daily quotes for ATR
+          // Calc ATR
+          // Calc daily TargetProfit/StopLoss...
+          // Update Daily Analysis
+        next(null, context);
+      },
+      /**
        * Update last quote if it's time to analyse (Resolution)
        * otherwise set the current quote as null to disable analyse.
        * If Live trading is enabled upsert the current quote for indicators calculations
        */
-      (next) => {
+      (ctx, next) => {
         debug('Check if new quote available %s', context.utm.format());
         const newContext = context;
         newContext.quote = null;
@@ -116,6 +132,7 @@ class Broker {
             return next(err);
           }
           newContext.position = pos;
+          newContext.position.targetProfit = this.dailyAnalyse.targetProfit;
           return next(err, newContext);
         });
       },
