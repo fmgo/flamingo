@@ -54,13 +54,15 @@ class Broker {
        * @param next
        */
       (next) => {
+        const newContext = context;
         // Check if last dayliAnalysis day is different from current utm...
           // Upsert New Daily Quote...
           // Get Daily quotes for ATR
           // Calc ATR
           // Calc daily TargetProfit/StopLoss...
           // Update Daily Analysis
-        next(null, context);
+        newContext.targetProfit = this.dailyAnalyse.targetProfit
+        next(null, newContext);
       },
       /**
        * Update last quote if it's time to analyse (Resolution)
@@ -69,7 +71,7 @@ class Broker {
        */
       (ctx, next) => {
         debug('Check if new quote available %s', context.utm.format());
-        const newContext = context;
+        const newContext = ctx;
         newContext.quote = null;
         newContext.closedPosition = null;
         // Check if it's time to analyse according to the strategy resolution
