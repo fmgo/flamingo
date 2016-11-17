@@ -451,11 +451,13 @@ class Trader {
               log.error(errStopPrice);
               callback(errStopPrice);
             }
+            const stopDistance = stopPips * 10000;
+            const limitDistance = context.targetProfit;
             const size = fmgOutils.calcPositionSize(
               context.account.balance,
               context.ask || context.bid,
               context.strategy.risk,
-              stopPips * 10000,
+              stopDistance,
               context.market.lotSize
             );
 
@@ -470,6 +472,8 @@ class Trader {
               bid: context.bid,
               ask: context.ask,
               size,
+              stopDistance,
+              limitDistance,
               currencyCode: context.market.currencyCode,
             };
             log.debug('New open order', context.openOrder);
