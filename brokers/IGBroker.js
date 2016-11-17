@@ -225,6 +225,11 @@ class IGBroker extends Broker {
       forceOpen: true,
       currencyCode: order.currencyCode,
     };
+    if (order.limitDistance) {
+      igOrder.limitDistance = order.limitDistance;
+    } if (order.stopDistance) {
+      igOrder.stopDistance = order.stopDistance;
+    }
     request.post(
       `${this.urlRoot}/positions/otc`,
       {
