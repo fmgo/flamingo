@@ -174,7 +174,7 @@ const aggregateQuoteFromTick = (opt, cb) => {
               ],
             },
           },
-          utm: { $min: '$utm' },
+          utm: { $first: '$utm' },
           askOpen: { $first: '$ask' },
           askHigh: { $max: '$ask' },
           askLow: { $min: '$ask' },
@@ -197,10 +197,15 @@ const aggregateQuoteFromTick = (opt, cb) => {
       quote.epic = opt.epic;
       quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
       if (opt.upsert) {
-        log.verbose('Persist quote');
-        db.collection('Quote').insertOne(quote);
+        log.verbose('Persist quote', quote);
+        db.collection('Quote').updateOne({
+          utm: moment(quote.utm).toDate(),
+          resolution: quote.resolution,
+          epic: quote.epic,
+        }, quote, { upsert: true, w: 1 }, cb);
+      } else {
+        cb(err, quote);
       }
-      cb(err, quote);
     });
 };
 
@@ -217,7 +222,7 @@ const getMinMaxPricePosition = (position, cb) => {
     .aggregate([{
       $match: {
         epic: position.epic,
-        utm: { $gt: from, $lt: to },
+        utm: { $gte: from, $lt: to },
         resolution: '1MINUTE',
       },
     },
@@ -308,7 +313,7 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
               ],
             },
           },
-          utm: { $min: '$utm' },
+          utm: { $first: '$utm' },
           askOpen: { $first: '$askOpen' },
           askHigh: { $max: '$askHigh' },
           askLow: { $min: '$askLow' },
@@ -325,6 +330,26 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
     .next((err, res) => {
       if (err || !res) {
         cb(err || 'No Quote aggregated');
+      } else {
+        async.each(res, (q, callback) => {
+          log.info(q);
+          const quote = q;
+          delete quote._id;
+          quote.epic = opt.epic;
+          quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
+          if (opt.upsert) {
+            log.verbose('Persist quote', quote);
+            db.collection('Quote').updateOne({
+              utm: moment(quote.utm).toDate(),
+              resolution: quote.resolution,
+              epic: quote.epic,
+            }, quote, { upsert: true, w: 1 }, callback);
+          } else {
+            callback(err);
+          }
+        }, (errorPersist) => {
+          cb(errorPersist, res);
+        });
       }
       const quote = res;
       delete quote._id;
