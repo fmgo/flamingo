@@ -217,12 +217,17 @@ const aggregateQuoteFromTick = (opt, cb) => {
  */
 const getMinMaxPricePosition = (position, cb) => {
   const to = moment(position.currentDate).toDate();
-  const from = moment(position.openDate).toDate();
+  const from = moment(position.openDate).set('seconds', 0).toDate();
+  log.verbose({
+    epic: position.epic,
+    utm: { $gte: from, $lte: to },
+    resolution: '1MINUTE',
+  });
   db.collection('Quote')
     .aggregate([{
       $match: {
         epic: position.epic,
-        utm: { $gte: from, $lt: to },
+        utm: { $gte: from, $lte: to },
         resolution: '1MINUTE',
       },
     },

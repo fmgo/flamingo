@@ -162,7 +162,7 @@ class IGBroker extends Broker {
               dealReference: igPos.position.dealReference,
               epic: igPos.market.epic,
               direction: igPos.position.direction,
-              openDate: igPos.position.createdDate,
+              openDate: igPos.position.createdDateUTC,
               openPrice: igPos.position.level,
               size: igPos.position.size,
               stopPrice: igPos.position.stopPrice,
