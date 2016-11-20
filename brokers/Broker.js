@@ -34,7 +34,8 @@ class Broker {
       pnl: 0,
     };
     this.dailyAnalyse = {
-      targetProfit: 35,
+      targetProfit: 36,
+      stopLoss: 12,
     };
     this.position = null;
   }
@@ -61,7 +62,8 @@ class Broker {
           // Calc ATR
           // Calc daily TargetProfit/StopLoss...
           // Update Daily Analysis
-        newContext.targetProfit = this.dailyAnalyse.targetProfit
+        newContext.targetProfit = this.dailyAnalyse.targetProfit;
+        newContext.stopDistance = this.dailyAnalyse.stopLoss;
         next(null, newContext);
       },
       /**

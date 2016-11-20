@@ -430,56 +430,33 @@ class Trader {
          * Calc the position size according to
          * the context strategy and the current price
          */
-        const epic = context.market.epic;
-        const resolution = context.strategy.resolution;
-        const nbPoints = context.strategy.atr;
-        const ratio = context.strategy.atrRatio;
+        const stopDistance = context.stopDistance;
+        const limitDistance = context.targetProfit;
+        const size = fmgOutils.calcPositionSize(
+          context.account.balance,
+          context.ask || context.bid,
+          context.strategy.risk,
+          stopDistance,
+          context.market.lotSize
+        );
 
-        database.getQuotes({
-          epic,
-          resolution,
-          nbPoints: nbPoints * 2,
-          utm: context.utm.clone(),
-        }, (err, quotes) => {
-          if (err) {
-            log.error(err);
-            callback(err);
-          }
-          quotes.reverse();
-          signals.getStopPips(quotes, nbPoints, ratio, (errStopPrice, stopPips) => {
-            if (errStopPrice || !stopPips) {
-              log.error(errStopPrice);
-              callback(errStopPrice);
-            }
-            const stopDistance = stopPips * 10000;
-            const limitDistance = context.targetProfit;
-            const size = fmgOutils.calcPositionSize(
-              context.account.balance,
-              context.ask || context.bid,
-              context.strategy.risk,
-              stopDistance,
-              context.market.lotSize
-            );
-
-            /**
-             * Create the open order
-             */
-            context.openOrder = {
-              utm: context.utm.toDate(),
-              direction: context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL',
-              epic: context.market.epic,
-              market: context.market,
-              bid: context.bid,
-              ask: context.ask,
-              size,
-              stopDistance,
-              limitDistance,
-              currencyCode: context.market.currencyCode,
-            };
-            log.debug('New open order', context.openOrder);
-            callback(null, broker, context);
-          });
-        });
+        /**
+         * Create the open order
+         */
+        context.openOrder = {
+          utm: context.utm.toDate(),
+          direction: context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL',
+          epic: context.market.epic,
+          market: context.market,
+          bid: context.bid,
+          ask: context.ask,
+          size,
+          stopDistance,
+          limitDistance,
+          currencyCode: context.market.currencyCode,
+        };
+        log.debug('New open order', context.openOrder);
+        callback(null, broker, context);
       } else {
         process.nextTick(() => {
           callback(null, broker, context);
