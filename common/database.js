@@ -440,6 +440,15 @@ const clean0Value = (opt, callback) => {
   );
 };
 
+const updateMarket = (market) => {
+  db.collection('Market').updateOne({
+    epic: market.epic,
+  }, market, {
+    upsert: true,
+    w: 1,
+  });
+};
+
 exports.connect = connect;
 exports.getTick = getTick;
 exports.getQuote = getQuote;
@@ -450,3 +459,4 @@ exports.buildQuotesCollection = buildQuotesCollection;
 exports.upsertQuotes = upsertQuotes;
 exports.clean0Value = clean0Value;
 exports.getQuoteUtm = getQuoteUtm;
+exports.updateMarket = updateMarket;

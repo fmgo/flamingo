@@ -29,9 +29,9 @@ class Trader {
    * @param {Object} market
    * @param {Object} strategy
    */
-  constructor(market, strategy) {
-    log.info(`Create Trader for : ${market.epic}`, { market, strategy });
-    this.market = market;
+  constructor(epic, strategy) {
+    log.info(`Create Trader for : ${epic}`, { epic, strategy });
+    this.epic = epic;
     this.strategy = strategy;
     this.live = false;
   }
@@ -46,10 +46,10 @@ class Trader {
      * Init the context
      */
     const context = {
-      market: self.market,
+      epic: self.epic,
       strategy: self.strategy,
     };
-    log.info(`Start live trading: ${self.market.epic}`, context);
+    log.info(`Start live trading: ${self.epic}`, context);
 
     /**
      * Create the IG Broker and log in to IG API
@@ -61,7 +61,11 @@ class Trader {
         process.exit(-1);
       } else {
         log.info(`Broker logged to IG API (${result.currentAccountId})`);
-
+        broker.getMarket(context, (errMarket, market) => {
+          log.info('Market traded', market);
+          self.market = market;
+          database.updateMarket(self.market);
+        });
         /**
          * Start the cron to run analyse every minutes (10 Seconds later)
          */

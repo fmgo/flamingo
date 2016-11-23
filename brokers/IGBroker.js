@@ -319,6 +319,41 @@ class IGBroker extends Broker {
         });
       });
   }
+
+  /**
+   * Callback for getMarket.
+   *
+   * @callback getMarketCallback
+   * @param {String} [error=null] - Error first.
+   * @param {Object} market
+   */
+  /**
+   * Get Market with dealId from IG REST API
+   *
+   * @param {Object} opt Options
+   * @param {getMarketCallback} callback
+   */
+  getMarket(opt, callback) {
+    log.info('Get IG Market');
+    request.get(`${this.urlRoot}/markets/${opt.epic}`,
+      {
+        headers: this.headers.v3,
+        json: true,
+      }, (error, response, body) => {
+        log.info('Market', body);
+        const market = {
+          epic: body.instrument.epic,
+          name: body.instrument.name,
+          lotSize: body.instrument.lotSize,
+          marketId: body.instrument.marketId,
+          currencies: body.instrument.currencies,
+          contractSize: Number(body.instrument.contractSize),
+          valueOfOnePip: Number(body.instrument.valueOfOnePip),
+          minDealSize: body.dealingRules.minDealSize,
+        };
+        callback(error, market);
+      });
+  }
 }
 
 module.exports = IGBroker;
