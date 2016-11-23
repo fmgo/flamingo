@@ -185,28 +185,29 @@ const aggregateQuoteFromTick = (opt, cb) => {
           bidClose: { $last: '$bid' },
         },
       },
-    ])
-    .sort({ utm: -1 })
-    .limit(1)
-    .next((err, res) => {
-      if (err || !res) {
+    ], (err, res) => {
+      if (err || !res || !res[0]) {
         cb(err || 'No quote aggregated');
       }
-      const quote = res;
-      delete quote._id;
-      quote.epic = opt.epic;
-      quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-      if (opt.upsert) {
-        log.verbose('Persist quote', quote);
-        db.collection('Quote').updateOne({
-          utm: moment(quote.utm).toDate(),
-          resolution: quote.resolution,
-          epic: quote.epic,
-        }, quote, { upsert: true, w: 1 }, (errUpdate, res) => {
-          cb(errUpdate, quote);
-        });
+      const quote = res[0];
+      if (quote) {
+        delete quote._id;
+        quote.epic = opt.epic;
+        quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
+        if (opt.upsert) {
+          log.verbose('Persist quote', quote);
+          db.collection('Quote').updateOne({
+            utm: moment(quote.utm).toDate(),
+            resolution: quote.resolution,
+            epic: quote.epic,
+          }, quote, { upsert: true, w: 1 }, (errUpdate, res) => {
+            cb(errUpdate, quote);
+          });
+        } else {
+          cb(err, quote);
+        }
       } else {
-        cb(err, quote);
+        cb('No quote aggregated');
       }
     });
 };
