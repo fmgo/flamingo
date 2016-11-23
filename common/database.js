@@ -139,6 +139,7 @@ const aggregateQuoteFromTick = (opt, cb) => {
   const to = opt.utm.utc().toDate();
   const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
     .toDate();
+  log.info('Aggregate:gte, lt ', { from, to, resolution });
   db.collection('Tick')
     .aggregate([{
       $match: {
@@ -185,20 +186,20 @@ const aggregateQuoteFromTick = (opt, cb) => {
           bidClose: { $last: '$bid' },
         },
       },
-    ])
-    .sort({ utm: -1 })
-    .limit(1)
-    .next((err, res) => {
-      if (err || !res) {
+    ], (err, res) => {
+      if (err || !res || !res[0]) {
         cb(err || 'No quote aggregated');
       }
-      const quote = res;
-      delete quote._id;
-      quote.epic = opt.epic;
-      quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-      if (opt.upsert) {
-        log.verbose('Persist quote', quote);
-        db.collection('Quote').insertOne(quote);
+      log.info(res);
+      const quote = res[0];
+      if (quote) {
+        delete quote._id;
+        quote.epic = opt.epic;
+        quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
+        if (opt.upsert) {
+          log.verbose('Persist quote', quote);
+          db.collection('Quote').insertOne(quote);
+        }
       }
       cb(err, quote);
     });

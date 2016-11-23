@@ -59,7 +59,6 @@ if (argv.buildDb) {
 
   database.connect(mongoDbUrl, (err, db) => {
     if (!err) {
-      const agFrom = from.clone();
       const agTo = from.clone().add(resolution.nbUnit, resolution.unit);
       async.whilst(
         /**
@@ -74,12 +73,10 @@ if (argv.buildDb) {
             limit: 0,
             upsert: true,
           };
-          log.info(`${agFrom.format()}, ${agTo.format()}`);
+          log.info(`${agTo.format()}`);
           database.aggregateQuoteFromTick(opt, (errAggregate, res) => {
             if (errAggregate) {
               log.error(errAggregate);
-            } else {
-              log.info(res.length);
             }
             agTo.add(opt.resolution.nbUnit, opt.resolution.unit);
             next();
