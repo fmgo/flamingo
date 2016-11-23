@@ -30,9 +30,10 @@ class Trader {
    * @param {Object} strategy
    */
   constructor(market, strategy) {
-    log.verbose(`Create Trader for : ${market.epic}`, { market, strategy });
+    log.info(`Create Trader for : ${market.epic}`, { market, strategy });
     this.market = market;
     this.strategy = strategy;
+    this.live = false;
   }
 
   /**
@@ -40,6 +41,7 @@ class Trader {
    */
   start() {
     const self = this;
+    self.live = true;
     /**
      * Init the context
      */
@@ -61,15 +63,15 @@ class Trader {
         log.info(`Broker logged to IG API (${result.currentAccountId})`);
 
         /**
-         * Start the cron to run analyse every minutes
+         * Start the cron to run analyse every minutes (10 Seconds later)
          */
-        self.minuteJobs = schedule.scheduleJob('* */1 * * *', () => {
+        self.minuteJobs = schedule.scheduleJob('10 * * * * *', () => {
           /**
            * Set the current context time (set seconds and milliseconds to 0)
            * run analyse and log report
            */
+          log.verbose('New Analyse triggered');
           context.utm = moment().seconds(0).milliseconds(0);
-          log.verbose(`Context time: ${context.utm.format()}`);
           self.analyse(broker, context, (errAnalyse, results) => {
             if (errAnalyse) {
               log.error(errAnalyse);
@@ -324,6 +326,7 @@ class Trader {
             log.error(errSmaCrossPrice);
             callback(errSmaCrossPrice);
           }
+          context.trendValue = res.meta.currentSma;
           if (res.trend) {
             log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.trend}`, res);
             context.trend = res.trend;
@@ -384,6 +387,7 @@ class Trader {
             log.error(errSmaCrossPrice);
             callback(errSmaCrossPrice);
           }
+          context.smaValue = res.meta.currentSma;
           if (res.signal) {
             log.verbose(`Signal for ${context.market.epic} at ${context.utm.format()}: ${res.signal}`, res);
             context.smaCrossPrice = res.signal;
@@ -475,7 +479,7 @@ class Trader {
    * open a new position with the openOrder
    *
    * @param broker
-   * @param ctx
+   * @param contextToHandle
    * @param callback
    */
   handleOrders(broker, contextToHandle, callback) {
@@ -535,16 +539,22 @@ class Trader {
     const report = {
       epic: context.market.epic,
       utm: context.utm.toDate(),
-      bid: context.bid,
-      ask: context.ask,
       price: context.price,
       balance: context.account.balance,
+      targetProfit: context.targetProfit,
+      stopDistance: context.stopDistance,
       position,
+      quote: context.quote || context.minQuote,
+      smaValue: context.smaValue,
       smaCrossPrice: context.smaCrossPrice,
+      trendValue: context.trendValue,
+      trend: context.trend,
+      openPos: context.openOrder ? 'YES' : 'NO',
+      closePos: context.closeOrder ? 'YES' : 'NO',
     };
     log.verbose('Result Analyse:', report);
-    if (context.utm.get('minute') === 0) {
-      log.info(`${report.utm} : ${report.balance.toFixed(0)} ${fmgOutils.isMarketOpen(moment(report.utm)) ? 'OPEN' : 'CLOSE'}`);
+    if (context.utm.get('minute') === 0 || this.live) {
+      log.info('Analyse Report', report);
     }
     if (callback) {
       process.nextTick(() => {

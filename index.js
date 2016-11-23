@@ -17,6 +17,7 @@ const config = require('./config');
  */
 log.remove(log.transports.Console);
 log.add(log.transports.Console, {
+  timestamp: true,
   level: config.logLevel,
   colorize: true,
   stringify: true,

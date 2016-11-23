@@ -8,7 +8,7 @@
  * TODO - Describe Close Order in JSDoc
  *
  */
-const debug = require('debug')('broker');
+const log = require('winston');
 const async = require('async');
 const moment = require('moment');
 const database = require('../common/database');
@@ -28,7 +28,7 @@ class Broker {
    * @param {Number} balance
    */
   constructor(balance = 10000) {
-    debug('Create Broker');
+    log.verbose('Create Broker');
     this.account = {
       balance,
       pnl: 0,
@@ -47,8 +47,7 @@ class Broker {
    * @param callback
    */
   updateContext(context, callback) {
-    debug('Update Context %s', context.utm.format());
-
+    log.verbose('Update Context %s', context.utm.format());
     async.waterfall([
       /**
        * Update DailyAnalyse if needed
@@ -72,7 +71,7 @@ class Broker {
        * If Live trading is enabled upsert the current quote for indicators calculations
        */
       (ctx, next) => {
-        debug('Check if new quote available %s', context.utm.format());
+        log.verbose('Check if new quote available %s', context.utm.format());
         const newContext = ctx;
         newContext.quote = null;
         newContext.closedPosition = null;
@@ -93,7 +92,7 @@ class Broker {
             if (err || !quote) {
               return next(err || 'Error aggregating quote from tick, no quote returned');
             }
-            debug('New quote created', quote);
+            log.verbose('New quote created', quote);
             newContext.quote = quote;
             return next(err, newContext);
           });
@@ -106,16 +105,17 @@ class Broker {
        * To Calc position profit and check stops
        */
       (ctx, next) => {
-        debug('Update context prices %s', context.utm.format());
+        log.verbose('Update context prices %s', context.utm.format());
         const newContext = ctx;
         const epic = newContext.market.epic;
         const utm = newContext.utm;
-        this.getPrice({ epic, utm }, (err, prices) => {
+        this.getPrice({ epic, utm }, (err, prices, minQuote) => {
           if (err || !prices.bid || !prices.ask) {
             console.log(prices);
             process.exit(-1);
             return next(err || `Error getting prices for ${utm.format()}`);
           }
+          newContext.minQuote = minQuote;
           newContext.bid = prices.bid;
           newContext.ask = prices.ask;
           newContext.price = newContext.bid + ((newContext.ask - newContext.bid) / 2);
@@ -126,7 +126,7 @@ class Broker {
        * Update current position, and calc profit
        */
       (ctx, next) => {
-        debug('Update context position if any', context.utm.format());
+        log.verbose('Update context position if any', context.utm.format());
         const newContext = ctx;
         const epic = newContext.market.epic;
         const utm = newContext.utm;
@@ -146,7 +146,7 @@ class Broker {
        * Update account context
        */
       (ctx, next) => {
-        debug('Update context account', context.utm.format());
+        log.verbose('Update context account', context.utm.format());
         const newContext = ctx;
         this.getAccount({}, (err, account) => {
           if (err) {
@@ -167,36 +167,36 @@ class Broker {
    * @param callback
    */
   getPrice(opt, callback) {
-    debug('Get price', opt.utm.format());
+    log.verbose('Get price', opt.utm.format());
     const epic = opt.epic;
     const utm = opt.utm;
     const prices = {};
-    database.getTick({ epic, utm }, (err, tick) => {
-      if (err) {
-        callback(err);
-      } else if (moment(tick.utm) === utm
-        && tick.bid && tick.bid.length > 0
-        && tick.ask && tick.ask.length > 0) {
-        prices.bid = tick.bid[1] || tick.bid[0];
-        prices.ask = tick.ask[1] || tick.ask[0];
-        callback(err, prices);
+
+    const resolution = { unit: 'minute', nbUnit: 1 };
+    database.getQuote({ epic, utm, resolution }, (errQuote, quote) => {
+      delete quote._id;
+      if (errQuote || !quote) {
+        callback(errQuote || `No Quote found for ${utm.format()}`);
+      } else if (moment(quote.utm) === utm) {
+        prices.bid = quote.bidOpen;
+        prices.ask = quote.askOpen;
       } else {
-        const resolution = { unit: 'minute', nbUnit: 1 };
-        database.getQuote({ epic, utm, resolution }, (errQuote, quote) => {
-          if (errQuote || !quote) {
-            callback(errQuote || `Not Quote found for ${utm.format()}`);
-          } else if (moment(quote.utm) === utm) {
-            prices.bid = quote.bidOpen;
-            prices.ask = quote.askOpen;
-          } else {
-            prices.bid = quote.bidClose;
-            prices.ask = quote.askClose;
-          }
-          callback(err, prices);
-        });
+        prices.bid = quote.bidClose;
+        prices.ask = quote.askClose;
       }
+      database.getTick({ epic, utm }, (err, tick) => {
+        if (err) {
+          callback(err);
+        } else if (moment(tick.utm) === utm
+          && tick.bid && tick.bid.length > 0
+          && tick.ask && tick.ask.length > 0) {
+          prices.bid = tick.bid[1] || tick.bid[0];
+          prices.ask = tick.ask[1] || tick.ask[0];
+        }
+        callback(err, prices, quote);
+      });
     });
-  }
+  };
 
   /**
    * Get Current open Position
@@ -210,7 +210,7 @@ class Broker {
    * @param callback
    */
   getPosition(opt, callback) {
-    debug('Get position');
+    log.verbose('Get position');
     if (this.position) {
       this.position.currentDate = opt.utm.toDate();
       this.position.currentPrice = this.position.direction === 'BUY' ?
@@ -227,7 +227,7 @@ class Broker {
    * @param callback
    */
   openPosition(order, callback) {
-    debug('Open position');
+    log.verbose('Open position');
     const openPrice = order.direction === 'BUY' ?
       order.ask :
       order.bid;
@@ -258,7 +258,7 @@ class Broker {
    * @param callback
    */
   closePosition(order, callback) {
-    debug('Close position');
+    log.verbose('Close position');
     const closedPosition = this.position;
     this.account.balance += this.position.profitEuro;
     this.position = null;
@@ -274,7 +274,7 @@ class Broker {
    * @param {Object} callback.account The Account
    */
   getAccount(opt, callback) {
-    debug('Get account');
+    log.verbose('Get account');
     process.nextTick(() => callback(null, this.account));
   }
 }

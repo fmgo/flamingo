@@ -202,7 +202,9 @@ const aggregateQuoteFromTick = (opt, cb) => {
           utm: moment(quote.utm).toDate(),
           resolution: quote.resolution,
           epic: quote.epic,
-        }, quote, { upsert: true, w: 1 }, cb);
+        }, quote, { upsert: true, w: 1 }, (errUpdate, res) => {
+          cb(errUpdate, quote);
+        });
       } else {
         cb(err, quote);
       }
