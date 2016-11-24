@@ -29,9 +29,9 @@ class Trader {
    * @param {Object} market
    * @param {Object} strategy
    */
-  constructor(market, strategy) {
-    log.info(`Create Trader for : ${market.epic}`, { market, strategy });
-    this.market = market;
+  constructor(epic, strategy) {
+    log.info(`Create Trader for : ${epic}`, { epic, strategy });
+    this.epic = epic;
     this.strategy = strategy;
     this.live = false;
   }
@@ -46,10 +46,10 @@ class Trader {
      * Init the context
      */
     const context = {
-      market: self.market,
+      epic: self.epic,
       strategy: self.strategy,
     };
-    log.info(`Start live trading: ${self.market.epic}`, context);
+    log.info(`Start live trading: ${self.epic}`, context);
 
     /**
      * Create the IG Broker and log in to IG API
@@ -61,11 +61,15 @@ class Trader {
         process.exit(-1);
       } else {
         log.info(`Broker logged to IG API (${result.currentAccountId})`);
-
+        broker.getMarket(context, (errMarket, market) => {
+          log.info('Market traded', market);
+          self.market = market;
+          database.updateMarket(self.market);
+        });
         /**
          * Start the cron to run analyse every minutes (10 Seconds later)
          */
-        self.minuteJobs = schedule.scheduleJob('10 * * * * *', () => {
+        self.minuteJobs = schedule.scheduleJob('3 * * * * *', () => {
           /**
            * Set the current context time (set seconds and milliseconds to 0)
            * run analyse and log report
@@ -252,6 +256,7 @@ class Trader {
                 log.error(errStopPrice);
                 next(errStopPrice);
               }
+              log.info(stopPrice);
               context.position.stopPrice = stopPrice;
               next(errStopPrice, context);
             });
@@ -457,7 +462,7 @@ class Trader {
           size,
           stopDistance,
           limitDistance,
-          currencyCode: context.market.currencyCode,
+          currencyCode: context.market.currencies[0].code,
         };
         log.debug('New open order', context.openOrder);
         callback(null, broker, context);
@@ -504,7 +509,7 @@ class Trader {
       (ctx, next) => {
         const context = ctx;
         if (context.openOrder) {
-          log.verbose(`Open Position ${context.market.epic} ${context.utm.format()}`, context.openOrder);
+          log.info(`Open Position ${context.market.epic} ${context.utm.format()}`, context.openOrder);
           broker.openPosition(context.openOrder, (err, openPosition) => {
             if (err) {
               log.error(err);

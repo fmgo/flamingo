@@ -55,15 +55,19 @@ class Broker {
        */
       (next) => {
         const newContext = context;
+        database.getMarket(newContext, (errMarket, market) => {
+          newContext.market = market;
+          newContext.targetProfit = this.dailyAnalyse.targetProfit;
+          newContext.stopDistance = this.dailyAnalyse.stopLoss;
+          next(null, newContext);
+        });
         // Check if last dayliAnalysis day is different from current utm...
           // Upsert New Daily Quote...
           // Get Daily quotes for ATR
           // Calc ATR
           // Calc daily TargetProfit/StopLoss...
           // Update Daily Analysis
-        newContext.targetProfit = this.dailyAnalyse.targetProfit;
-        newContext.stopDistance = this.dailyAnalyse.stopLoss;
-        next(null, newContext);
+
       },
       /**
        * Update last quote if it's time to analyse (Resolution)
@@ -263,6 +267,13 @@ class Broker {
     this.account.balance += this.position.profitEuro;
     this.position = null;
     process.nextTick(() => callback(null, closedPosition));
+  }
+
+  getMarket(epic, callback) {
+    log.verbose('Get Market');
+    database.getMarket(epic, (err, market) => {
+      callback(err, market);
+    });
   }
 
   /**

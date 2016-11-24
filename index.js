@@ -26,16 +26,28 @@ log.add(log.transports.Console, {
   humanReadableUnhandledException: true,
 });
 
+
+log.add(log.transports.File, {
+  filename: `${argv.epic}.log` || 'default.log',
+  timestamp: true,
+  level: config.logLevel,
+  colorize: true,
+  stringify: true,
+  prettyPrint: true,
+  handleExceptions: true,
+  humanReadableUnhandledException: true,
+});
+
 /**
  * Set the market and strategy to trade
  * TODO - Get Market From Database into Trader (pass only epic to the trader)
  */
-const market = {
-  epic: 'CS.D.EURUSD.MINI.IP',
-  lotSize: 1,
-  contractSize: 10000,
-  currencyCode: 'USD',
-};
+// const market = {
+//   epic: 'CS.D.EURUSD.MINI.IP',
+//   lotSize: 1,
+//   contractSize: 10000,
+//   currencyCode: 'USD',
+// };
 
 /**
  * Set the trading strategy
@@ -65,9 +77,9 @@ const btOpt = {
 /**
  * Create the trader with the market and strategy
  */
-const trader = new Trader(market, strategy);
+const trader = new Trader(argv.epic, strategy);
 
-log.info('Start Trading...', { market, strategy });
+log.info('Start Trading...', { epic: argv.epic, strategy });
 async.waterfall([
   /**
    * Connect the database
