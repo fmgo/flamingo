@@ -69,7 +69,7 @@ class Trader {
         /**
          * Start the cron to run analyse every minutes (10 Seconds later)
          */
-        self.minuteJobs = schedule.scheduleJob('10 * * * * *', () => {
+        self.minuteJobs = schedule.scheduleJob('3 * * * * *', () => {
           /**
            * Set the current context time (set seconds and milliseconds to 0)
            * run analyse and log report
@@ -256,6 +256,7 @@ class Trader {
                 log.error(errStopPrice);
                 next(errStopPrice);
               }
+              log.info(stopPrice);
               context.position.stopPrice = stopPrice;
               next(errStopPrice, context);
             });
@@ -461,7 +462,7 @@ class Trader {
           size,
           stopDistance,
           limitDistance,
-          currencyCode: context.market.currencyCode,
+          currencyCode: context.market.currencies[0].code,
         };
         log.debug('New open order', context.openOrder);
         callback(null, broker, context);
@@ -508,7 +509,7 @@ class Trader {
       (ctx, next) => {
         const context = ctx;
         if (context.openOrder) {
-          log.verbose(`Open Position ${context.market.epic} ${context.utm.format()}`, context.openOrder);
+          log.info(`Open Position ${context.market.epic} ${context.utm.format()}`, context.openOrder);
           broker.openPosition(context.openOrder, (err, openPosition) => {
             if (err) {
               log.error(err);

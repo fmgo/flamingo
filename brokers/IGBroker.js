@@ -213,7 +213,7 @@ class IGBroker extends Broker {
    * @param callback
    */
   openPosition(order, callback) {
-    log.verbose('Open Position');
+    log.info('Open Position', order);
     const igOrder = {
       epic: order.epic,
       expiry: '-',
