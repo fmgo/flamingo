@@ -450,6 +450,13 @@ const updateMarket = (market) => {
   });
 };
 
+const getMarket = (opt, cb) => {
+  db.collection('Market')
+    .find({ epic: opt.epic }, { _id: 0 })
+    .limit(1)
+    .next(cb);
+};
+
 exports.connect = connect;
 exports.getTick = getTick;
 exports.getQuote = getQuote;
@@ -461,3 +468,4 @@ exports.upsertQuotes = upsertQuotes;
 exports.clean0Value = clean0Value;
 exports.getQuoteUtm = getQuoteUtm;
 exports.updateMarket = updateMarket;
+exports.getMarket = getMarket;

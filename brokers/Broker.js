@@ -55,7 +55,7 @@ class Broker {
        */
       (next) => {
         const newContext = context;
-        this.getMarket(newContext, (errMarket, market) => {
+        database.getMarket(newContext, (errMarket, market) => {
           newContext.market = market;
           newContext.targetProfit = this.dailyAnalyse.targetProfit;
           newContext.stopDistance = this.dailyAnalyse.stopLoss;
