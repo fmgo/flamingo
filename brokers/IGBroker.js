@@ -99,13 +99,15 @@ class IGBroker extends Broker {
 
   /**
    * Log in to IG API
-   * @param {string} identifier
-   * @param {string} password
-   * @param {string} apiKey
+   * @param {Object} credentials
    * @param callback
    */
-  login(identifier, password, apiKey, callback) {
+  login(credentials, callback) {
+    const identifier = credentials.identifier;
+    const password = credentials.password;
+    const apiKey = credentials.apiKey;
     log.verbose('%s log in to IG', identifier);
+
     this.apiKey = apiKey;
     request.post(
       `${this.urlRoot}/session`,
@@ -126,9 +128,8 @@ class IGBroker extends Broker {
           this.clientToken = response.headers.cst;
           this.accountId = body.currentAccountId;
           log.verbose('Loged in to IG %s', this.accountId);
-          this.isLogged = true;
         }
-        callback(error, body || { errorCode: error.message });
+        callback(error, this.accountId || { errorCode: error.message });
       });
   }
 
@@ -165,7 +166,6 @@ class IGBroker extends Broker {
               openDate: igPos.position.createdDateUTC,
               openPrice: igPos.position.level,
               size: igPos.position.size,
-              stopPrice: igPos.position.stopPrice,
               currentDate: utm.toDate(),
               currentPrice: igPos.market.offer,
               lotSize: igPos.market.lotSize,
@@ -330,12 +330,12 @@ class IGBroker extends Broker {
   /**
    * Get Market with dealId from IG REST API
    *
-   * @param {Object} opt Options
+   * @param {String} epic epic
    * @param {getMarketCallback} callback
    */
-  getMarket(opt, callback) {
+  getMarket(epic, callback) {
     log.info('Get IG Market');
-    request.get(`${this.urlRoot}/markets/${opt.epic}`,
+    request.get(`${this.urlRoot}/markets/${epic}`,
       {
         headers: this.headers.v3,
         json: true,

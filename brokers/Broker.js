@@ -34,8 +34,8 @@ class Broker {
       pnl: 0,
     };
     this.dailyAnalyse = {
-      targetProfit: 36,
-      stopLoss: 12,
+      limitDistance: 36,
+      stopDistance: 12,
     };
     this.position = null;
   }
@@ -57,8 +57,8 @@ class Broker {
         const newContext = context;
         database.getMarket(newContext, (errMarket, market) => {
           newContext.market = market;
-          newContext.targetProfit = this.dailyAnalyse.targetProfit;
-          newContext.stopDistance = this.dailyAnalyse.stopLoss;
+          newContext.limitDistance = this.dailyAnalyse.limitDistance;
+          newContext.stopDistance = this.dailyAnalyse.stopDistance;
           next(null, newContext);
         });
         // Check if last dayliAnalysis day is different from current utm...
@@ -141,7 +141,8 @@ class Broker {
           }
           newContext.position = pos;
           if (newContext.position) {
-            newContext.position.targetProfit = this.dailyAnalyse.targetProfit;
+            newContext.position.limitDistance = this.dailyAnalyse.limitDistance;
+            newContext.position.stopDistance = this.dailyAnalyse.stopDistance;
           }
           return next(err, newContext);
         });
@@ -245,7 +246,6 @@ class Broker {
       openDate: order.utm,
       openPrice,
       size: order.size,
-      stopPrice: order.stopPrice,
       currentDate: order.utm,
       currentPrice,
       lotSize: order.market.lotSize,

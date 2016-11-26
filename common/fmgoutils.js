@@ -125,19 +125,52 @@ const calcExpectancy = (transactions) => {
 
 const isPositionStopped = (position) => {
   let isStopped = false;
-  // if (position.currentProfit >= position.targetProfit) {
-  //   isStopped = true;
-  // }
-  // if (position.direction === 'BUY' && position.currentPrice <= position.stopPrice) {
-  //   isStopped = true;
-  // }
-  // if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
-  //   isStopped = true;
-  // }
+  if (position.direction === 'BUY' && position.currentPrice <= position.stopPrice) {
+    isStopped = true;
+  }
+  if (position.direction === 'SELL' && position.currentPrice >= position.stopPrice) {
+    isStopped = true;
+  }
   if (moment(position.currentDate).get('hour') >= 21 && moment(position.currentDate).get('minute') >= 45) {
     isStopped = true;
   }
   return isStopped;
+};
+
+/**
+ * Generate and log the report from the context analysed
+ *
+ * @param context
+ * @param callback
+ */
+const getReport = (context, callback) => {
+  let position = context.position;
+  if (position) {
+    position = {
+      direction: context.position.direction,
+      size: context.position.size,
+      currentProfit: context.position.currentProfit,
+    };
+  }
+  const report = {
+    epic: context.market.epic,
+    utm: context.utm.toDate(),
+    price: context.price,
+    balance: context.account.balance,
+    targetProfit: context.targetProfit,
+    stopDistance: context.stopDistance,
+    position,
+    quote: context.quote || context.minQuote,
+    smaValue: context.smaValue,
+    smaCrossPrice: context.smaCrossPrice,
+    trendValue: context.trendValue,
+    trend: context.trend,
+    openPos: context.openOrder ? 'YES' : 'NO',
+    closePos: context.closeOrder ? 'YES' : 'NO',
+  };
+  process.nextTick(() => {
+    callback(null, report);
+  });
 };
 
 exports.getPipProfit = getPipProfit;
@@ -146,3 +179,4 @@ exports.calcPositionProfit = calcPositionProfit;
 exports.isMarketOpen = isMarketOpen;
 exports.calcExpectancy = calcExpectancy;
 exports.isPositionStopped = isPositionStopped;
+exports.getReport = getReport;

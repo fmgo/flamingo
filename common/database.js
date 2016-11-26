@@ -9,6 +9,7 @@ const log = require('winston');
 const moment = require('moment');
 const async = require('async');
 const config = require('../config');
+const _ = require('lodash');
 
 let db = null;
 
@@ -123,6 +124,23 @@ const getQuotes = (opt, cb) => {
     .sort({ utm: -1 })
     .limit(opt.nbPoints)
     .toArray(cb);
+};
+
+/**
+ * Get Prices (Bid/Ask) in Asc order (The last quote is the most recent)
+ *
+ * @param opt
+ * @param cb
+ */
+const getPrices = (opt, cb) => {
+  this.getQuote(opt, (err, quotes) => {
+    if (err) {
+      cb(err);
+    }
+    quotes.reverse();
+    const prices = _.map(quotes, (quote) => quote.bidClose + ((quote.askClose - quote.bidClose) / 2));
+    cb(err, prices);
+  });
 };
 
 /**
@@ -461,6 +479,7 @@ exports.connect = connect;
 exports.getTick = getTick;
 exports.getQuote = getQuote;
 exports.getQuotes = getQuotes;
+exports.getPrices = getPrices;
 exports.aggregateQuoteFromTick = aggregateQuoteFromTick;
 exports.getMinMaxPricePosition = getMinMaxPricePosition;
 exports.buildQuotesCollection = buildQuotesCollection;
