@@ -8,10 +8,10 @@ const log = require('winston');
 const moment = require('moment');
 const schedule = require('node-schedule');
 
-const database = require('./common/database');
-const fmgOutils = require('./common/fmgoutils');
-const signals = require('./common/signals');
-const IGBroker = require('./brokers/IGBroker');
+const database = require('../common/database');
+const fmgOutils = require('../common/fmgoutils');
+const signals = require('../common/signals');
+const IGBroker = require('../brokers/IGBroker');
 
 /**
  * @class Trader
@@ -129,10 +129,7 @@ class Trader {
     const context = ctx;
     if (context.position) {
       context.position.currentProfit = fmgOutils.getPipProfit(context.position);
-      if (context.position.currentProfit >= context.limitDistance
-        || context.position.currentProfit <= (-1 * context.stopDistance)
-        || moment(context.position.currentDate).get('hour') >= context.strategy.tradingHours.stop
-      ) {
+      if (fmgOutils.isPositionStopped(context)) {
         this.broker.closePosition(context.closeOrder, (err, closedPosition) => {
           if (err) {
             log.error(err);
@@ -271,7 +268,7 @@ class Trader {
     context.openOrder = null;
     context.closeOrder = null;
     if (context.smaCrossPrice
-      && (context.smaCrossPrice === context.trend || !context.strategy.smaTrend)
+      && (context.trend.includes(context.smaCrossPrice) || !context.strategy.smaTrend)
     ) {
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;

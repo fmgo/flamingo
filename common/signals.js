@@ -3,9 +3,9 @@
  * Copyright(c) 2016 fmgo
  * MIT Licensed
  */
-const indicators = require('./indicators');
 const _ = require('lodash');
 const log = require('winston');
+const indicators = require('./indicators');
 
 /**
  * Callback for calcSma.
@@ -53,25 +53,12 @@ const calcTrend = (prices, nbPoints, callback) => {
     const currentSma = sma[sma.length - 1];
     let trend = null;
     if (currentSma) {
-      trend = currentPrice >= currentSma ? 'XUP' : 'XDOWN';
+      trend = currentPrice >= currentSma ? 'UP' : 'DOWN';
     }
     callback(null, { trend, meta: { currentPrice, currentSma } });
   });
 };
 
-const getStopPrice = (data, position, nbPoints, ratio, callback) => {
-  getStopPips(data, nbPoints, ratio, (err, stopPips) => {
-    let stopPrice;
-    if (position.direction === 'BUY') {
-      stopPrice = Math.max((position.maxPrice - stopPips), position.openPrice - stopPips);
-    } else if (position.direction === 'SELL') {
-      stopPrice = Math.min((position.minPrice + stopPips), position.openPrice + stopPips);
-    }
-    callback(null, stopPrice);
-  });
-};
-
 exports.smaCrossPrice = smaCrossPrice;
-exports.getStopPrice = getStopPrice;
 exports.getStopPips = getStopPips;
 exports.calcTrend = calcTrend;

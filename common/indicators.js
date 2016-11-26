@@ -3,33 +3,7 @@
  * Copyright(c) 2016 fmgo
  * MIT Licensed
  */
-
-const _ = require('lodash');
 const talib = require('talib');
-
-/**
- * Calculate the average of an array of Number or object
- * if nbPoints is passed it will calculate the average on
- * the last n values of the array
- *
- * @param items Array of Number or Object
- * @param [key] Field of the object in array
- * @param [nbPoints] Calculate average on the last n values
- * @returns {Number} The average
- */
-const calcAverage = (items, key, nbPoints) => {
-  if (!items || nbPoints > items.length) {
-    return NaN;
-  }
-  let itemsToCalc = items;
-  if (nbPoints) {
-    itemsToCalc = items.slice(items.length - nbPoints, items.length);
-  }
-  if (key) {
-    itemsToCalc = _.map(itemsToCalc, key);
-  }
-  return _.sum(itemsToCalc) / itemsToCalc.length;
-};
 
 /**
  * Calc if two values crosses
@@ -71,7 +45,6 @@ const calcCross = (prevValShort, prevValLong, currentValShort, currentValLong) =
  * @param {calcSmaCallback} callback - A callback to run.
  */
 const calcSma = (data, nbPoints, callback) => {
-
   talib.execute({
     name: 'SMA',
     startIdx: 0,
@@ -119,7 +92,6 @@ const calcAtr = (data, nbPoints, callback) => {
 /**
  * Exports API
  */
-exports.calcAverage = calcAverage;
 exports.calcCross = calcCross;
 exports.calcSma = calcSma;
 exports.calcAtr = calcAtr;

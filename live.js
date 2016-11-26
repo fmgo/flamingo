@@ -8,7 +8,7 @@ const argv = require('optimist').argv;
 const log = require('winston');
 const config = require('./config');
 const database = require('./common/database');
-const Trader = require('./Trader');
+const Trader = require('./traders/Trader');
 const EPIC = argv.epic || 'CS.D.EURUSD.MINI.IP';
 
 /**
