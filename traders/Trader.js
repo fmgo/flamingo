@@ -38,10 +38,10 @@ class Trader {
    * Start live trading
    */
   start() {
+    const broker = new IGBroker();
     async.waterfall([
       (next) => {
-        this.broker = new IGBroker();
-        this.broker.login(this.igCredentials, (err, accountId) => {
+        broker.login(this.igCredentials, (err, accountId) => {
           if (err) {
             next(err);
           } else {
@@ -50,7 +50,7 @@ class Trader {
           }
         });
       }, (next) => {
-        this.broker.getMarket(this.epic, (errMarket, market) => {
+        broker.getMarket(this.epic, (errMarket, market) => {
           if (errMarket) {
             next(errMarket);
           } else {
@@ -64,8 +64,9 @@ class Trader {
           strategy: this.strategy,
         };
         schedule.scheduleJob('5 * * * * *', () => {
+          log.info('Analyse context', context);
           context.utm = moment().seconds(0).milliseconds(0);
-          this.analyse(context, (errAnalyse, results) => {
+          this.analyse(broker, context, (errAnalyse, results) => {
             if (errAnalyse) {
               log.error(errAnalyse);
               next(errAnalyse);
@@ -93,12 +94,12 @@ class Trader {
    * 4 - (Trader) Generate orders (Entry/Exit) according to signal and position
    * 5 - (Trader) Handle Orders (Send Close then Open order to the broker)
    */
-  analyse(ctx, callback) {
+  analyse(broker, ctx, callback) {
     const self = this;
     async.waterfall([
       (next) => {
-        this.broker.updateContext(ctx, (err, context) => {
-          next(err, context);
+        broker.updateContext(ctx, (err, context) => {
+          next(err, broker, context);
         });
       },
       self.checkStops,
@@ -125,21 +126,26 @@ class Trader {
    * @param callback
    *
    */
-  checkStops(ctx, callback) {
+  checkStops(broker, ctx, callback) {
     const context = ctx;
+    log.info('Check stops', context.epic);
     if (context.position) {
       context.position.currentProfit = fmgOutils.getPipProfit(context.position);
       if (fmgOutils.isPositionStopped(context)) {
-        this.broker.closePosition(context.closeOrder, (err, closedPosition) => {
+        broker.closePosition(context.closeOrder, (err, closedPosition) => {
           if (err) {
             log.error(err);
             callback(err);
           }
           context.closedPosition = closedPosition;
           context.position = null;
-          callback(err, context);
+          callback(err, broker, context);
         });
       }
+    } else {
+      process.nextTick(() => {
+        callback(null, broker, context);
+      });
     }
   }
 
@@ -151,9 +157,11 @@ class Trader {
    * @param ctx
    * @param callback
    */
-  calcSignals(ctx, callback) {
+  calcSignals(broker, ctx, callback) {
     const context = ctx;
     context.smaCrossPrice = null;
+    log.info('Calc signals', context.epic);
+
     /**
      * If there is a new quote we check
      * if it cross the Sma
@@ -189,12 +197,12 @@ class Trader {
           }
           context.smaValue = res.meta.currentSma;
           context.smaCrossPrice = res.signal;
-          callback(null, context);
+          callback(null, broker, context);
         });
       });
     } else {
       process.nextTick(() => {
-        callback(null, context);
+        callback(null, broker, context);
       });
     }
   }
@@ -207,7 +215,8 @@ class Trader {
    * @param ctx
    * @param callback
    */
-  calcTrend(ctx, callback) {
+  calcTrend(broker, ctx, callback) {
+    log.info('Calc trend', ctx.epic);
     const context = ctx;
     context.trend = null;
     /**
@@ -241,12 +250,12 @@ class Trader {
           }
           context.trendValue = res.meta.currentSma;
           context.trend = res.trend;
-          callback(null, context);
+          callback(null, broker, context);
         });
       });
     } else {
       process.nextTick(() => {
-        callback(null, ctx);
+        callback(null, broker, ctx);
       });
     }
   }
@@ -260,7 +269,8 @@ class Trader {
    * @param ctx
    * @param callback
    */
-  handleSignals(ctx, callback) {
+  handleSignals(broker, ctx, callback) {
+    log.info('Handle Signals', ctx.epic);
     const context = ctx;
     /**
      * Reset the orders
@@ -268,7 +278,7 @@ class Trader {
     context.openOrder = null;
     context.closeOrder = null;
     if (context.smaCrossPrice
-      && (context.trend.includes(context.smaCrossPrice) || !context.strategy.smaTrend)
+      && ((context.trend && context.trend.includes(context.smaCrossPrice)) || !context.strategy.smaTrend)
     ) {
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
@@ -303,15 +313,15 @@ class Trader {
           limitDistance,
           currencyCode: context.market.currencies[0].code,
         };
-        callback(null, context);
+        callback(null, broker, context);
       } else {
         process.nextTick(() => {
-          callback(null, context);
+          callback(null, broker, context);
         });
       }
     } else {
       process.nextTick(() => {
-        callback(null, context);
+        callback(null, broker, context);
       });
     }
   }
@@ -324,12 +334,13 @@ class Trader {
    * @param contextToHandle
    * @param callback
    */
-  handleOrders(contextToHandle, callback) {
+  handleOrders(broker, contextToHandle, callback) {
+    log.info('Handle Orders', contextToHandle.epic);
     async.waterfall([
       (next) => {
         const context = contextToHandle;
         if (context.closeOrder) {
-          this.broker.closePosition(context.closeOrder, (err, closedPosition) => {
+          broker.closePosition(context.closeOrder, (err, closedPosition) => {
             if (err) {
               log.error(err);
               next(err);
@@ -345,7 +356,7 @@ class Trader {
       (ctx, next) => {
         const context = ctx;
         if (context.openOrder) {
-          this.broker.openPosition(context.openOrder, (err, openPosition) => {
+          broker.openPosition(context.openOrder, (err, openPosition) => {
             if (err) {
               log.error(err);
               next(err);

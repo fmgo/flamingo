@@ -47,7 +47,7 @@ class Broker {
    * @param callback
    */
   updateContext(context, callback) {
-    log.verbose('Update Context %s', context.utm.format());
+    log.info('Update Context %s', context.utm.format());
     async.waterfall([
       /**
        * Update DailyAnalyse if needed
@@ -109,7 +109,7 @@ class Broker {
        * To Calc position profit and check stops
        */
       (ctx, next) => {
-        log.verbose('Update context prices %s', context.utm.format());
+        log.info('Update context prices %s', context.utm.format());
         const newContext = ctx;
         const epic = newContext.market.epic;
         const utm = newContext.utm;
@@ -174,32 +174,17 @@ class Broker {
   getPrice(opt, callback) {
     log.verbose('Get price', opt.utm.format());
     const epic = opt.epic;
-    const utm = opt.utm;
+    const utm = { $lt: opt.utm.toDate() };
     const prices = {};
-
     const resolution = { unit: 'minute', nbUnit: 1 };
     database.getQuote({ epic, utm, resolution }, (errQuote, quote) => {
-      delete quote._id;
       if (errQuote || !quote) {
-        callback(errQuote || `No Quote found for ${utm.format()}`);
-      } else if (moment(quote.utm) === utm) {
-        prices.bid = quote.bidOpen;
-        prices.ask = quote.askOpen;
+        callback(errQuote || `No Quote found for ${opt.utm.format()}`);
       } else {
         prices.bid = quote.bidClose;
         prices.ask = quote.askClose;
       }
-      database.getTick({ epic, utm }, (err, tick) => {
-        if (err) {
-          callback(err);
-        } else if (moment(tick.utm) === utm
-          && tick.bid && tick.bid.length > 0
-          && tick.ask && tick.ask.length > 0) {
-          prices.bid = tick.bid[1] || tick.bid[0];
-          prices.ask = tick.ask[1] || tick.ask[0];
-        }
-        callback(err, prices, quote);
-      });
+      callback(errQuote, prices, quote);
     });
   };
 
@@ -246,6 +231,7 @@ class Broker {
       openDate: order.utm,
       openPrice,
       size: order.size,
+      stopPrice: order.stopPrice,
       currentDate: order.utm,
       currentPrice,
       lotSize: order.market.lotSize,

@@ -20,7 +20,7 @@ let db = null;
  * @param cb
  */
 const connect = (mongoDbUrl = config.mongoDbUrl, cb) => {
-  log.verbose('Connect to %s', mongoDbUrl);
+  log.info('Connect to %s', mongoDbUrl);
   mongodb.connect(mongoDbUrl, (err, _db) => {
     if (err) {
       cb(err);
@@ -40,12 +40,12 @@ const connect = (mongoDbUrl = config.mongoDbUrl, cb) => {
  * @param cb
  */
 const getTick = (opt, cb) => {
-  log.verbose('Get %s tick before or equal to %s', opt.epic, opt.utm.format());
+  log.verbose('Get %s tick before or equal to %s', opt.epic, opt.utm);
   db.collection('Tick')
     .find({
       epic: opt.epic,
-      utm: { $lte: opt.utm.utc().toDate() },
-    })
+      utm: opt.utm,
+    }, { _id: 0 })
     .sort({ utm: -1 })
     .limit(1)
     .next(cb);
@@ -55,51 +55,30 @@ const getTick = (opt, cb) => {
 /**
  * Get Last Quote from utm or before
  *
+ *
  * @param {object} opt
  * @param {string} opt.epic
- * @param {date} opt.utm
+ * @param {Object} opt.utm
  * @param {object} opt.resolution
  * @param {object} [opt.fields = {}]
  * @param cb
  */
 const getQuote = (opt, cb) => {
   const resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-  log.verbose('Get %s quote (%s) before or equal to %s', opt.epic, resolution, opt.utm.format());
+  log.info(opt);
   db.collection('Quote')
     .find({
       epic: opt.epic,
-      utm: { $lte: opt.utm.utc().toDate() },
+      utm: opt.utm,
       resolution,
       bidClose: { $ne: null },
       askClose: { $ne: null },
-    }, opt.fields || {})
+    }, opt.fields || { _id: 0 })
     .sort({ utm: -1 })
     .limit(1)
     .next(cb);
 };
 
-/**
- * Get Quote with utm
- *
- * @param {object} opt
- * @param {string} opt.epic
- * @param {date} opt.utm
- * @param {object} opt.resolution
- * @param {object} [opt.fields = {}]
- * @param cb
- */
-const getQuoteUtm = (opt, cb) => {
-  const resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-  log.verbose('Get %s quote (%s) with utm equal to %s', opt.epic, resolution, opt.utm.format());
-  db.collection('Quote')
-    .find({
-      epic: opt.epic,
-      utm: opt.utm.utc().toDate(),
-      resolution,
-    }, opt.fields || {})
-    .limit(1)
-    .next(cb);
-};
 
 /**
  * Get All quote before utm limited to nbPoints
@@ -133,7 +112,7 @@ const getQuotes = (opt, cb) => {
  * @param cb
  */
 const getPrices = (opt, cb) => {
-  this.getQuote(opt, (err, quotes) => {
+  this.getQuotes(opt, (err, quotes) => {
     if (err) {
       cb(err);
     }
@@ -157,6 +136,12 @@ const aggregateQuoteFromTick = (opt, cb) => {
   const to = opt.utm.utc().toDate();
   const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
     .toDate();
+  log.info('Aggregate from tick', {
+    epic: opt.epic,
+    resolution,
+    from,
+    to,
+  });
   db.collection('Tick')
     .aggregate([{
       $match: {
@@ -213,12 +198,12 @@ const aggregateQuoteFromTick = (opt, cb) => {
         quote.epic = opt.epic;
         quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
         if (opt.upsert) {
-          log.verbose('Persist quote', quote);
+          log.info('Persist quote', quote);
           db.collection('Quote').updateOne({
             utm: moment(quote.utm).toDate(),
             resolution: quote.resolution,
             epic: quote.epic,
-          }, quote, { upsert: true, w: 1 }, (errUpdate, res) => {
+          }, quote, { upsert: true, w: 1 }, (errUpdate) => {
             cb(errUpdate, quote);
           });
         } else {
@@ -231,65 +216,6 @@ const aggregateQuoteFromTick = (opt, cb) => {
 };
 
 /**
- * Aggregate a Quote from tick collection according to the utm and resolution
- *
- * @param {object} position
- * @param cb
- */
-const getMinMaxPricePosition = (position, cb) => {
-  const to = moment(position.currentDate).toDate();
-  const from = moment(position.openDate).set('seconds', 0).toDate();
-  log.verbose({
-    epic: position.epic,
-    utm: { $gte: from, $lte: to },
-    resolution: '1MINUTE',
-  });
-  db.collection('Quote')
-    .aggregate([{
-      $match: {
-        epic: position.epic,
-        utm: { $gte: from, $lte: to },
-        resolution: '1MINUTE',
-      },
-    },
-      {
-        $project: {
-          askHigh: 1,
-          askLow: 1,
-          bidHigh: 1,
-          bidLow: 1,
-        },
-      },
-      {
-        $group: {
-          _id: position.epic,
-          askHigh: { $max: '$askHigh' },
-          askLow: { $min: '$askLow' },
-          bidHigh: { $max: '$bidHigh' },
-          bidLow: { $min: '$bidLow' },
-        },
-      },
-    ])
-    .limit(1)
-    .next((err, res) => {
-      if (err || !res) {
-        log.error(err);
-        cb(err || 'No Min Max price found');
-      }
-      const result = {};
-      if (position.direction === 'BUY') {
-        result.maxPrice = res.bidHigh;
-        result.minPrice = res.bidLow;
-      } else if (position.direction === 'SELL') {
-        result.maxPrice = res.askHigh;
-        result.minPrice = res.askLow;
-      }
-      log.info(result);
-      cb(err, result);
-    });
-};
-
-/**
  * Aggregate a Quote from Quote collection (MINUTE) according to the utm and resolution
  *
  * @param {object} opt
@@ -298,7 +224,7 @@ const getMinMaxPricePosition = (position, cb) => {
  * @param {object} opt.resolution
  * @param cb
  */
-const aggregateQuoteFromMinuteQuote = (opt, cb) => {
+const aggregateFromMinuteQuote = (opt, cb) => {
   const resolution = opt.resolution;
   const to = opt.utm.utc().toDate();
   const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
@@ -400,7 +326,6 @@ const aggregateQuoteFromMinuteQuote = (opt, cb) => {
  * @param cb
  */
 const buildQuotesCollection = (opt, cb) => {
-  log.verbose('Build Quote collection');
   const currentTime = moment(opt.from).seconds(0).milliseconds(0);
   let min = currentTime.get(opt.resolution.unit);
   min -= min % opt.resolution.nbUnit;
@@ -409,18 +334,32 @@ const buildQuotesCollection = (opt, cb) => {
   let minTo = to.get(opt.resolution.unit);
   minTo -= minTo % opt.resolution.nbUnit;
   to.minute(minTo);
+  log.info('Build Quote collection', {
+    epic: opt.epic,
+    resolution: opt.resolution,
+    from: currentTime.format(),
+    to: to.format(),
+  });
   async.whilst(
-    () => currentTime < to,
+    () => currentTime <= to,
     (callback) => {
-      aggregateQuoteFromMinuteQuote({
+      const optAggregate = {
         epic: opt.epic,
         utm: currentTime,
         resolution: opt.resolution,
         upsert: true,
-      }, (err, quote) => {
-        currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
-        callback(err, quote);
-      });
+      };
+      if (opt.fromQuote) {
+        aggregateFromMinuteQuote(optAggregate, (err, quote) => {
+          currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
+          callback(err, quote);
+        });
+      } else {
+        aggregateQuoteFromTick(optAggregate, (err, quote) => {
+          currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
+          callback(err, quote);
+        });
+      }
     }, cb);
 };
 
@@ -481,10 +420,9 @@ exports.getQuote = getQuote;
 exports.getQuotes = getQuotes;
 exports.getPrices = getPrices;
 exports.aggregateQuoteFromTick = aggregateQuoteFromTick;
-exports.getMinMaxPricePosition = getMinMaxPricePosition;
+exports.aggregateFromMinuteQuote = aggregateFromMinuteQuote;
 exports.buildQuotesCollection = buildQuotesCollection;
 exports.upsertQuotes = upsertQuotes;
 exports.clean0Value = clean0Value;
-exports.getQuoteUtm = getQuoteUtm;
 exports.updateMarket = updateMarket;
 exports.getMarket = getMarket;
