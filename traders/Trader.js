@@ -64,7 +64,7 @@ class Trader {
           strategy: this.strategy,
         };
         schedule.scheduleJob('5 * * * * *', () => {
-          log.info('Analyse context', context);
+          log.info('Analyse context', context.epic);
           context.utm = moment().seconds(0).milliseconds(0);
           this.analyse(broker, context, (errAnalyse, results) => {
             if (errAnalyse) {
@@ -132,7 +132,7 @@ class Trader {
     if (context.position) {
       context.position.currentProfit = fmgOutils.getPipProfit(context.position);
       if (fmgOutils.isPositionStopped(context)) {
-        broker.closePosition(context.closeOrder, (err, closedPosition) => {
+        broker.closePosition(context.position, (err, closedPosition) => {
           if (err) {
             log.error(err);
             callback(err);
@@ -140,6 +140,10 @@ class Trader {
           context.closedPosition = closedPosition;
           context.position = null;
           callback(err, broker, context);
+        });
+      } else {
+        process.nextTick(() => {
+          callback(null, broker, context);
         });
       }
     } else {
@@ -278,7 +282,7 @@ class Trader {
     context.openOrder = null;
     context.closeOrder = null;
     if (context.smaCrossPrice
-      && ((context.trend && context.trend.includes(context.smaCrossPrice)) || !context.strategy.smaTrend)
+      && ((context.trend && context.smaCrossPrice.includes(context.trend)) || !context.strategy.smaTrend)
     ) {
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
