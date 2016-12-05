@@ -6,18 +6,53 @@
 const argv = require('optimist').argv;
 const log = require('winston');
 const moment = require('moment');
-const async = require('async');
 const database = require('../common/database');
+const dbChecker = require('./database.check');
 
 log.remove(log.transports.Console);
 log.add(log.transports.Console, {
-  level: 'verbose',
+  level: 'info',
   colorize: true,
   stringify: true,
   prettyPrint: true,
   handleExceptions: true,
   humanReadableUnhandledException: true,
 });
+log.add(log.transports.File, {
+  filename: 'buildDb.log',
+  level: 'error',
+  json: false,
+});
+
+
+if (argv.checkDb) {
+  const mongoDbUrl = argv.mongoDbUrl;
+  const from = argv.from;
+  const to = argv.to;
+  const epic = argv.epic;
+  const resolution = argv.resolution;
+
+  const opt = {
+    from,
+    to,
+    epic,
+    resolution,
+  };
+  log.info('Connect to mongo:', mongoDbUrl);
+  database.connect(mongoDbUrl, (err, db) => {
+    if (!err) {
+      log.info(opt);
+      dbChecker.checkMissingQuotes(opt, (errCheck, res) => {
+        if (errCheck) {
+          log.error(errCheck);
+        }
+        process.exit(0);
+      });
+    } else {
+      log.error(err);
+    }
+  });
+}
 
 if (argv.buildDb) {
   const mongoDbUrl = argv.mongoDbUrl;
@@ -32,30 +67,12 @@ if (argv.buildDb) {
         from,
         to,
         resolution,
+      }, (err) => {
+        if (err) {
+          log.error(err);
+        }
+        log.info('Finish');
       });
-      // const agTo = from.clone().add(resolution.nbUnit, resolution.unit);
-      // async.whilst(
-      //   /**
-      //    * Check if currentTime is after endTime
-      //    */
-      //   () => agTo <= endTime,
-      //   (next) => {
-      //     const opt = {
-      //       epic,
-      //       utm: agTo,
-      //       resolution,
-      //       limit: 0,
-      //       upsert: true,
-      //     };
-      //     log.info(`${agTo.format()}`);
-      //     database.aggregateQuoteFromTick(opt, (errAggregate, res) => {
-      //       if (errAggregate) {
-      //         log.error(errAggregate);
-      //       }
-      //       agTo.add(opt.resolution.nbUnit, opt.resolution.unit);
-      //       next();
-      //     });
-      //   });
     } else {
       log.info(err);
     }

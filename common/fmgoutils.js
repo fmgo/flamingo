@@ -4,6 +4,7 @@
  * MIT Licensed
  */
 const moment = require('moment');
+const log = require('winston');
 
 /**
  * Calculate the position profit
@@ -83,7 +84,24 @@ const getReport = (context, callback) => {
   });
 };
 
+/**
+ * Check if market is open...
+ *
+ * From Sunday 23h to Friday 23h
+ * @param utm
+ * @returns {boolean}
+ */
+const isMarketOpen = (utm) => {
+  const date = moment(utm);
+  const day = date.utc().isoWeekday();
+  const hour = date.utc().get('hour');
+  const isOpen = !((day === 5 && hour > 20) || day === 6 || (day === 7 && hour <= 20));
+  log.verbose(`Market is open: ${date} => ${isOpen}`);
+  return isOpen;
+};
+
 exports.getPipProfit = getPipProfit;
 exports.calcPositionSize = calcPositionSize;
 exports.isPositionStopped = isPositionStopped;
 exports.getReport = getReport;
+exports.isMarketOpen = isMarketOpen;

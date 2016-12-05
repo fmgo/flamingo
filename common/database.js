@@ -133,20 +133,11 @@ const getPrices = (opt, cb) => {
  */
 const aggregateQuoteFromTick = (opt, cb) => {
   const resolution = opt.resolution;
-  const to = opt.utm.utc().toDate();
-  const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
-    .toDate();
-  log.info('Aggregate from tick', {
-    epic: opt.epic,
-    resolution,
-    from,
-    to,
-  });
   db.collection('Tick')
     .aggregate([{
       $match: {
         epic: opt.epic,
-        utm: { $gte: from, $lt: to },
+        utm: opt.utm,
       },
     },
       {
@@ -189,16 +180,18 @@ const aggregateQuoteFromTick = (opt, cb) => {
         },
       },
     ], (err, res) => {
-      if (err || !res || !res[0]) {
-        cb(err || 'No quote aggregated');
-      }
-      const quote = res[0];
-      if (quote) {
+      if (err) {
+        cb(err);
+      } else if (!res || !res[0]) {
+        log.error('No quote aggregated', to);
+        cb();
+      } else {
+        const quote = res[0];
         delete quote._id;
         quote.epic = opt.epic;
         quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
         if (opt.upsert) {
-          log.info('Persist quote', quote);
+          log.info('Persist quote', quote.utm);
           db.collection('Quote').updateOne({
             utm: moment(quote.utm).toDate(),
             resolution: quote.resolution,
@@ -209,8 +202,6 @@ const aggregateQuoteFromTick = (opt, cb) => {
         } else {
           cb(err, quote);
         }
-      } else {
-        cb('No quote aggregated');
       }
     });
 };
@@ -284,7 +275,6 @@ const aggregateFromMinuteQuote = (opt, cb) => {
         cb(err || 'No Quote aggregated');
       } else {
         async.each(res, (q, callback) => {
-          log.info(q);
           const quote = q;
           delete quote._id;
           quote.epic = opt.epic;
@@ -345,21 +335,14 @@ const buildQuotesCollection = (opt, cb) => {
     (callback) => {
       const optAggregate = {
         epic: opt.epic,
-        utm: currentTime,
+        utm: currentTime.toDate(),
         resolution: opt.resolution,
         upsert: true,
       };
-      if (opt.fromQuote) {
-        aggregateFromMinuteQuote(optAggregate, (err, quote) => {
-          currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
-          callback(err, quote);
-        });
-      } else {
-        aggregateQuoteFromTick(optAggregate, (err, quote) => {
-          currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
-          callback(err, quote);
-        });
-      }
+      aggregateQuoteFromTick(optAggregate, (err, quote) => {
+        currentTime.add(opt.resolution.nbUnit, opt.resolution.unit);
+        callback(err, quote);
+      });
     }, cb);
 };
 
