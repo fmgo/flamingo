@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title><%= title %></title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="bootstrap/css/bootstrap-theme.min.css">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="javascripts/jquery.min.js"></script>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+</head>
+<body>
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+
+            <a class="navbar-brand" href="#"><span class="glyphicon glyphicon-stats" aria-hidden="true"></span></a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Home <span class="sr-only">(current)</span></a></li>
+            </ul>
+        </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+</nav>
+<div class="container">
+    <p>From: <input type="text" id="datepickerFrom">To: <input type="text" id="datepickerTo"> <button id="loadChart">Load</button></p>
+    <div id="graph_1"></div>
+</div>
+</body>
+</html>
+<script>
+    $(function () {
+
+        /**
+         * Load new data depending on the selected min and max
+         */
+        function afterSetExtremes(e) {
+
+            var chart = $('#graph_1').highcharts();
+
+            chart.showLoading('Loading data from server...');
+            $.getJSON('/quotes?start=' + Math.round(e.min) +
+                    '&end=' + Math.round(e.max) + '&callback=?', function (data) {
+
+                chart.series[0].setData(data);
+                chart.hideLoading();
+            });
+        }
+        var from = getUrlParameter('from');
+        var to = getUrlParameter('to');
+
+        console.log(new Date(from));
+        console.log(new Date(to).getTime());
+
+        $.getJSON('/quotes?start='+new Date(from).getTime()+'&end='+new Date(to).getTime()+'&callback=?', function (data) {
+            console.log(data);
+
+            // Add a null value for the end date
+            const lastDate = new Date(data[data.length-1][0]);
+            data = [].concat(data, [[lastDate, null, null, null, null]]);
+
+            // create the chart
+            $('#graph_1').highcharts('StockChart', {
+                chart: {
+                    type: 'candlestick',
+                    zoomType: 'x'
+                },
+
+                navigator: {
+                    adaptToUpdatedData: false,
+                    series: {
+                        data: data
+                    }
+                },
+
+                scrollbar: {
+                    liveRedraw: false
+                },
+
+                title: {
+                    text: 'AAPL history by the minute from 1998 to 2011'
+                },
+
+                subtitle: {
+                    text: 'Displaying 1.7 million data points in Highcharts Stock by async server loading'
+                },
+
+                rangeSelector: {
+                    buttons: [{
+                        type: 'hour',
+                        count: 1,
+                        text: '1h'
+                    }, {
+                        type: 'day',
+                        count: 1,
+                        text: '1d'
+                    }, {
+                        type: 'month',
+                        count: 1,
+                        text: '1m'
+                    }, {
+                        type: 'year',
+                        count: 1,
+                        text: '1y'
+                    }, {
+                        type: 'all',
+                        text: 'All'
+                    }],
+                    inputEnabled: false, // it supports only days
+                    selected: 0 // all
+                },
+
+                xAxis: {
+                    events: {
+                        afterSetExtremes: afterSetExtremes
+                    },
+                    minRange: 3600 * 1000 // one hour
+                },
+
+                yAxis: {
+                    floor: 0
+                },
+
+                series: [{
+                    data: data,
+                    dataGrouping: {
+                        enabled: false
+                    }
+                }]
+            });
+        });
+    });
+
+    var getUrlParameter = function getUrlParameter(sParam) {
+        var sPageURL = decodeURIComponent(window.location.search.substring(1)),
+                sURLVariables = sPageURL.split('&'),
+                sParameterName,
+                i;
+
+        for (i = 0; i < sURLVariables.length; i++) {
+            sParameterName = sURLVariables[i].split('=');
+
+            if (sParameterName[0] === sParam) {
+                return sParameterName[1] === undefined ? true : sParameterName[1];
+            }
+        }
+    };
+
+</script>
+<script src="https://code.highcharts.com/stock/highstock.js"></script>
+<script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
