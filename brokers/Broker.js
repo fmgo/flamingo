@@ -33,10 +33,6 @@ class Broker {
       balance,
       pnl: 0,
     };
-    this.dailyAnalyse = {
-      limitDistance: 36,
-      stopDistance: 12,
-    };
     this.position = null;
   }
 
@@ -50,33 +46,13 @@ class Broker {
     log.info('Update Context %s', context.utm.format());
     async.waterfall([
       /**
-       * Update DailyAnalyse if needed
-       * @param next
-       */
-      (next) => {
-        const newContext = context;
-        database.getMarket(newContext, (errMarket, market) => {
-          newContext.market = market;
-          newContext.limitDistance = this.dailyAnalyse.limitDistance;
-          newContext.stopDistance = this.dailyAnalyse.stopDistance;
-          next(null, newContext);
-        });
-        // Check if last dayliAnalysis day is different from current utm...
-          // Upsert New Daily Quote...
-          // Get Daily quotes for ATR
-          // Calc ATR
-          // Calc daily TargetProfit/StopLoss...
-          // Update Daily Analysis
-
-      },
-      /**
        * Update last quote if it's time to analyse (Resolution)
        * otherwise set the current quote as null to disable analyse.
        * If Live trading is enabled upsert the current quote for indicators calculations
        */
-      (ctx, next) => {
+      (next) => {
         log.verbose('Check if new quote available %s', context.utm.format());
-        const newContext = ctx;
+        const newContext = context;
         newContext.quote = null;
         newContext.closedPosition = null;
         // Check if it's time to analyse according to the strategy resolution
@@ -88,7 +64,7 @@ class Broker {
         if (!newContext.simu && newContext.quote) {
           const opt = {
             epic: newContext.market.epic,
-            utm: newContext.utm,
+            utm: newContext.utm.clone().subtract(resolution.nbUnit, resolution.unit).toDate(),
             resolution,
             upsert: true,
           };
@@ -96,7 +72,7 @@ class Broker {
             if (err || !quote) {
               return next(err || 'Error aggregating quote from tick, no quote returned');
             }
-            log.verbose('New quote created', quote);
+            log.info('New quote created', quote);
             newContext.quote = quote;
             return next(err, newContext);
           });
@@ -113,24 +89,30 @@ class Broker {
         const newContext = ctx;
         const epic = newContext.market.epic;
         const utm = newContext.utm;
-        this.getPrice({ epic, utm }, (err, prices, minQuote) => {
-          if (err || !prices.bid || !prices.ask) {
-            console.log(prices);
-            process.exit(-1);
-            return next(err || `Error getting prices for ${utm.format()}`);
-          }
-          newContext.minQuote = minQuote;
-          newContext.bid = prices.bid;
-          newContext.ask = prices.ask;
+        if (!newContext.quote) {
+          this.getPrice({ epic, utm }, (err, prices, minQuote) => {
+            if (err || !prices.bid || !prices.ask) {
+              process.exit(-1);
+              next(err || `Error getting prices for ${utm.format()}`);
+            }
+            newContext.minQuote = minQuote;
+            newContext.bid = prices.bid;
+            newContext.ask = prices.ask;
+            newContext.price = newContext.bid + ((newContext.ask - newContext.bid) / 2);
+            next(err, newContext);
+          });
+        } else {
+          newContext.bid = newContext.quote.bidClose;
+          newContext.ask = newContext.quote.askClose;
           newContext.price = newContext.bid + ((newContext.ask - newContext.bid) / 2);
-          return next(err, newContext);
-        });
+          next(null, newContext);
+        }
       },
       /**
        * Update current position, and calc profit
        */
       (ctx, next) => {
-        log.verbose('Update context position if any', context.utm.format());
+        log.verbose('Update context position if any', ctx.utm.format());
         const newContext = ctx;
         const epic = newContext.market.epic;
         const utm = newContext.utm;
@@ -141,8 +123,8 @@ class Broker {
           }
           newContext.position = pos;
           if (newContext.position) {
-            newContext.position.limitDistance = this.dailyAnalyse.limitDistance;
-            newContext.position.stopDistance = this.dailyAnalyse.stopDistance;
+            newContext.position.limitDistance = newContext.strategy.targetProfit;
+            newContext.position.stopDistance = newContext.strategy.stopLoss;
           }
           return next(err, newContext);
         });

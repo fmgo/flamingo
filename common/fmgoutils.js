@@ -5,6 +5,7 @@
  */
 const moment = require('moment');
 const log = require('winston');
+const _ = require('lodash');
 
 /**
  * Calculate the position profit
@@ -68,8 +69,8 @@ const getReport = (context, callback) => {
     utm: context.utm.toDate(),
     price: context.price,
     balance: context.account.balance,
-    targetProfit: context.targetProfit,
-    stopDistance: context.stopDistance,
+    targetProfit: context.strategy.targetProfit,
+    stopLoss: context.strategy.stopLoss,
     position,
     quote: context.quote || context.minQuote,
     smaValue: context.smaValue,
@@ -83,6 +84,20 @@ const getReport = (context, callback) => {
     callback(null, report);
   });
 };
+
+const isTradingHours = (utm, strategy) => {
+  const currentUtm = moment(utm);
+  let inHoursToTrade = false;
+  _.forEach(strategy.tradingHours, (value) => {
+    if ((value.days.includes(currentUtm.isoWeekday()))
+      && (currentUtm.get('hour') >= value.start && currentUtm.get('hour') <= value.stop)) {
+      inHoursToTrade = true;
+    }
+  });
+  log.info('is Trading hour ? ', { isoWeekDay: currentUtm.isoWeekday(), Hours:currentUtm.get('hour') ,  inHoursToTrade});
+  return inHoursToTrade;
+};
+
 
 /**
  * Check if market is open...
@@ -105,3 +120,4 @@ exports.calcPositionSize = calcPositionSize;
 exports.isPositionStopped = isPositionStopped;
 exports.getReport = getReport;
 exports.isMarketOpen = isMarketOpen;
+exports.isTradingHours = isTradingHours;

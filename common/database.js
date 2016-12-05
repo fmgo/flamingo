@@ -180,10 +180,11 @@ const aggregateQuoteFromTick = (opt, cb) => {
         },
       },
     ], (err, res) => {
+      log.info(err, res);
       if (err) {
         cb(err);
       } else if (!res || !res[0]) {
-        log.error('No quote aggregated', to);
+        log.error('No quote aggregated', opt.utm);
         cb();
       } else {
         const quote = res[0];

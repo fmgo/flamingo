@@ -31,6 +31,7 @@ class Trader {
     log.info('Create Trader', { strategy, igIdentifier: igCredentials.identifier });
     this.epic = strategy.epic;
     this.strategy = strategy;
+    this.market = null;
     this.igCredentials = igCredentials;
   }
 
@@ -55,15 +56,17 @@ class Trader {
             next(errMarket);
           } else {
             database.updateMarket(market);
+            this.market = market;
             next(errMarket, market);
           }
         });
       }, (next) => {
         const context = {
           epic: this.epic,
+          market: this.market,
           strategy: this.strategy,
         };
-        schedule.scheduleJob('5 * * * * *', () => {
+        schedule.scheduleJob('1 * * * * *', () => {
           log.info('Analyse context', context.epic);
           context.utm = moment().seconds(0).milliseconds(0);
           this.analyse(broker, context, (errAnalyse, results) => {
@@ -129,7 +132,7 @@ class Trader {
   checkStops(broker, ctx, callback) {
     const context = ctx;
     log.info('Check stops', context.epic);
-    if (context.position) {
+    if (context.position || context.strategy.watchStops) {
       context.position.currentProfit = fmgOutils.getPipProfit(context.position);
       if (fmgOutils.isPositionStopped(context)) {
         broker.closePosition(context.position, (err, closedPosition) => {
@@ -170,10 +173,7 @@ class Trader {
      * If there is a new quote we check
      * if it cross the Sma
      */
-    if (context.quote
-      && context.utm.get('hour') < context.strategy.tradingHours.stop
-      && context.utm.get('hour') >= context.strategy.tradingHours.start
-    ) {
+    if (context.quote && fmgOutils.isTradingHours(context.utm, context.strategy)) {
       const epic = context.market.epic;
       const resolution = context.strategy.resolution;
       const nbPoints = context.strategy.sma + 1;
@@ -199,6 +199,7 @@ class Trader {
             log.error(errSma);
             callback(errSma);
           }
+          log.info(res);
           context.smaValue = res.meta.currentSma;
           context.smaCrossPrice = res.signal;
           callback(null, broker, context);
@@ -292,8 +293,8 @@ class Trader {
          * Calc the position size according to
          * the context strategy and the current price
          */
-        const stopDistance = context.stopDistance;
-        const limitDistance = context.limitDistance;
+        const stopDistance = context.strategy.stopLoss;
+        const limitDistance = context.strategy.targetProfit;
         const size = fmgOutils.calcPositionSize(
           context.account.balance,
           context.price,
