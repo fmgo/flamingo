@@ -24,7 +24,7 @@ log.add(log.transports.Console, {
 });
 
 const DB_URL = 'mongodb://localhost:27017/fmgo-backtest';
-const EPIC = 'CS.D.EURUSD.MINI.IP';
+const EPIC = 'CS.D.EURJPY.MINI.IP';
 const RESOLUTION = '1MINUTE';
 const FROM = '2016-11-28 00:00:00';
 const TO = '2016-12-02 21:00:00';
@@ -98,7 +98,7 @@ const checkCross = (prevValShort, prevValLong, currentValShort, currentValLong) 
 const getPrice = (quote) => parseFloat((quote.bidClose + ((quote.askClose - quote.bidClose) / 2)).toFixed(5));
 
 const calcNbPip = (cross, crossPrice, currentPrice) => {
-  let currentPipProfit = ((crossPrice - currentPrice) * 10000).toFixed(1);
+  let currentPipProfit = ((crossPrice - currentPrice) * 100).toFixed(1);
   currentPipProfit = cross === 'XUP' ?
   1 * currentPipProfit :
   -1 * currentPipProfit;
@@ -108,9 +108,7 @@ const calcNbPip = (cross, crossPrice, currentPrice) => {
 const isTradingHours = (utm) => {
   const currentUtm = moment(utm);
   let inHoursToTrade = false;
-  if ((currentUtm.isoWeekday() === 3 || currentUtm.isoWeekday() === 4)
-  && ((currentUtm.get('hour') >= 13 && currentUtm.get('hour') <= 16)
-  || (currentUtm.get('hour') >= 8 && currentUtm.get('hour') <= 9))) {
+  if (currentUtm.get('hour') >= 21 || currentUtm.get('hour') <= 3) {
     inHoursToTrade = true;
   }
   return inHoursToTrade;
@@ -185,7 +183,7 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
               exitedLoosingTrades++;
             }
           }
-          log.verbose(result[lastCrossUtm]);
+          // log.info(result[lastCrossUtm]);
           trades.push(result[lastCrossUtm]);
         }
         if (isTradingHours(value.utm)) {
@@ -340,8 +338,8 @@ const runAnalysis = (opt, cb) => {
 };
 
 runAnalysis({
-  tp_range: [2, 10],
-  sl_range: [-10, -2],
+  tp_range: [3, 10],
+  sl_range: [-10, -3],
   weeks: WEEKS,
   sma_values: [5, 6, 7, 8, 9, 10],
 }, (err, result) => {
