@@ -60,7 +60,7 @@ class Trader {
             next(errMarket, market);
           }
         });
-      }, (next) => {
+      }, () => {
         const context = {
           epic: this.epic,
           market: this.market,
@@ -72,7 +72,6 @@ class Trader {
           this.analyse(broker, context, (errAnalyse, results) => {
             if (errAnalyse) {
               log.error(errAnalyse);
-              next(errAnalyse);
             } else {
               fmgOutils.getReport(results, (errReport, report) => {
                 log.info(report);
