@@ -24,8 +24,12 @@ log.add(log.transports.Console, {
 });
 
 const DB_URL = 'mongodb://localhost:27017/fmgo-backtest';
-const EPIC = 'CS.D.EURJPY.MINI.IP';
-const RESOLUTION = '1MINUTE';
+
+const EPIC = 'CS.D.EURUSD.MINI.IP';
+const reso = {nbUnit: 15, unit: 'minute'};
+const RESOLUTION = `${reso.nbUnit}${reso.unit.toUpperCase()}`;
+const SPREAD = 0.00007;
+
 const FROM = '2016-11-28 00:00:00';
 const TO = '2016-12-02 21:00:00';
 
@@ -108,7 +112,9 @@ const calcNbPip = (cross, crossPrice, currentPrice) => {
 const isTradingHours = (utm) => {
   const currentUtm = moment(utm);
   let inHoursToTrade = false;
-  if (currentUtm.get('hour') >= 21 || currentUtm.get('hour') <= 3) {
+  if ((currentUtm.get('hour') >= 13 && currentUtm.get('hour') <= 17)
+  || (currentUtm.get('hour') >= 9 && currentUtm.get('hour') <= 10)
+    || (currentUtm.get('hour') >= 2 && currentUtm.get('hour') <= 4)) {
     inHoursToTrade = true;
   }
   return inHoursToTrade;
@@ -188,10 +194,10 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
         }
         if (isTradingHours(value.utm)) {
           lastCrossUtm = value.utm;
-          const enterPrice = cross === 'XUP' ? quotes[key + 1].bidOpen : quotes[key + 1].askOpen;
+          const enterPrice = cross === 'XUP' ? (quotes[key + 1].bidOpen + SPREAD) : (quotes[key + 1].askOpen - SPREAD);
           const currentHigLow = cross === 'XUP' ? quotes[key + 1].askOpen : quotes[key + 1].bidOpen;
           result[value.utm] = {
-            startUtm: value.utm,
+            startUtm: moment(value.utm).add(reso.nbUnit, reso.unit).toDate(),
             cross,
             enterPrice,
             currentSma,
@@ -233,7 +239,7 @@ const analyseWeek = (week, maValue, stopLoss, targetProfit, cb) => {
         db.collection('Quote')
           .find({
             epic: EPIC,
-            utm: { $gte: moment(from).subtract(maValue, 'minute').toDate(), $lt: moment(to).toDate() },
+            utm: { $gte: moment(from).subtract(maValue * reso.nbUnit, 'minute').toDate(), $lt: moment(to).toDate() },
             resolution: RESOLUTION,
           }, { _id: 0 })
           .sort({ utm: 1 })
@@ -338,10 +344,10 @@ const runAnalysis = (opt, cb) => {
 };
 
 runAnalysis({
-  tp_range: [3, 10],
-  sl_range: [-10, -3],
+  tp_range: [15, 30],
+  sl_range: [-15, -5],
   weeks: WEEKS,
-  sma_values: [5, 6, 7, 8, 9, 10],
+  sma_values: [30, 45, 50, 60],
 }, (err, result) => {
   log.info(result.weekResults);
   log.info(result.trades.length);
@@ -353,6 +359,9 @@ runAnalysis({
       dayOfWeek: moment(value.startUtm).format('e'),
       hour: moment(value.startUtm).format('HH'),
       direction: value.cross,
+      // enterPrice: value.enterPrice,
+      // exitDate: moment(value.exitUtm).format(),
+      // exitPrice: value.exitPrice,
       profit: value.exitProfit,
       stopped: (value.stopped || value.targetHit || false),
       duration: value.duration,

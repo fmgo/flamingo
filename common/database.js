@@ -335,7 +335,10 @@ const buildQuotesCollection = (opt, cb) => {
     (callback) => {
       const optAggregate = {
         epic: opt.epic,
-        utm: currentTime.toDate(),
+        utm: {
+          $gte: currentTime.clone().subtract(opt.resolution.nbUnit, opt.resolution.unit).toDate(),
+          $lt: currentTime.toDate(),
+        },
         resolution: opt.resolution,
         upsert: true,
       };
