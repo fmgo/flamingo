@@ -284,6 +284,7 @@ class Trader {
     if (context.smaCrossPrice
       && ((context.trend && context.smaCrossPrice.includes(context.trend)) || !context.strategy.smaTrend)
     ) {
+      context.smaCrossPrice = context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL';
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
       }
@@ -301,13 +302,13 @@ class Trader {
           stopDistance,
           context.market.lotSize
         );
-
+        log.info('Size', size);
         /**
          * Create the open order
          */
         context.openOrder = {
           utm: context.utm.toDate(),
-          direction: context.smaCrossPrice === 'XUP' ? 'BUY' : 'SELL',
+          direction: context.smaCrossPrice,
           epic: context.market.epic,
           market: context.market,
           bid: context.bid,

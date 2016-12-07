@@ -27,8 +27,8 @@ const smaCrossPrice = (prices, nbPoints, callback) => {
     const prevPrice = prices[prices.length - 2];
     const currentSma = sma[sma.length - 1];
     const prevSma = sma[sma.length - 2];
-    const signal = indicators.calcCross(prevPrice, currentSma, currentPrice, prevSma);
-    callback(null, { signal, meta: { prevPrice, currentSma, currentPrice, prevSma } });
+    const signal = indicators.calcCross(prevPrice, prevSma, currentPrice, currentSma);
+    callback(null, { signal, meta: { prevPrice, prevSma, currentPrice, currentSma } });
   });
 };
 

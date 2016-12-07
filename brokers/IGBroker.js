@@ -198,11 +198,16 @@ class IGBroker extends Broker {
           log.error(error);
           callback(error);
         }
-        const account = {
-          balance: body.accounts[0].balance.balance,
-          pnl: body.accounts[0].balance.profitLoss,
-          currency: body.accounts[0].currency,
+        let account = {
+          balance : 1000,
         };
+        if (body.account) {
+          account = {
+            balance: body.accounts[0].balance.balance,
+            pnl: body.accounts[0].balance.profitLoss,
+            currency: body.accounts[0].currency,
+          };
+        }
         callback(error, account);
       });
   }
