@@ -64,7 +64,10 @@ class Broker {
         if (!newContext.simu && newContext.quote) {
           const opt = {
             epic: newContext.market.epic,
-            utm: newContext.utm.clone().subtract(resolution.nbUnit, resolution.unit).toDate(),
+            utm: {
+              $gte: newContext.utm.clone().subtract(resolution.nbUnit, resolution.unit).toDate(),
+              $lt: newContext.utm.toDate(),
+            },
             resolution,
             upsert: true,
           };

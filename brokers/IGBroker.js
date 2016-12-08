@@ -199,9 +199,9 @@ class IGBroker extends Broker {
           callback(error);
         }
         let account = {
-          balance : 1000,
+          balance: 1000,
         };
-        if (body.account) {
+        if (body.accounts) {
           account = {
             balance: body.accounts[0].balance.balance,
             pnl: body.accounts[0].balance.profitLoss,

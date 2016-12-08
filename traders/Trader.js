@@ -172,7 +172,7 @@ class Trader {
      * If there is a new quote we check
      * if it cross the Sma
      */
-    if (context.quote && fmgOutils.isTradingHours(context.utm, context.strategy)) {
+    if (context.quote) {
       const epic = context.market.epic;
       const resolution = context.strategy.resolution;
       const nbPoints = context.strategy.sma + 1;
@@ -288,7 +288,7 @@ class Trader {
       if (context.position && context.position.direction !== context.smaCrossPrice) {
         context.closeOrder = context.position;
       }
-      if (!context.position || context.closeOrder) {
+      if (fmgOutils.isTradingHours(context.utm, context.strategy) && (!context.position || context.closeOrder)) {
         /**
          * Calc the position size according to
          * the context strategy and the current price
