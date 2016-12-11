@@ -72,6 +72,10 @@ const WEEKS = [
     start: '2016-11-28 00:00:00',
     end: '2016-12-02 21:00:00',
   },
+  {
+    start: '2016-12-03 00:00:00',
+    end: '2016-12-10 00:00:00',
+  },
 ];
 
 /**
@@ -102,7 +106,7 @@ const checkCross = (prevValShort, prevValLong, currentValShort, currentValLong) 
 const getPrice = (quote) => parseFloat((quote.bidClose + ((quote.askClose - quote.bidClose) / 2)).toFixed(5));
 
 const calcNbPip = (cross, crossPrice, currentPrice) => {
-  let currentPipProfit = ((crossPrice - currentPrice) * 100).toFixed(1);
+  let currentPipProfit = ((crossPrice - currentPrice) * 10000).toFixed(1);
   currentPipProfit = cross === 'XUP' ?
   1 * currentPipProfit :
   -1 * currentPipProfit;
@@ -112,9 +116,12 @@ const calcNbPip = (cross, crossPrice, currentPrice) => {
 const isTradingHours = (utm) => {
   const currentUtm = moment(utm);
   let inHoursToTrade = false;
-  if ((currentUtm.get('hour') >= 13 && currentUtm.get('hour') <= 17)
-  || (currentUtm.get('hour') >= 9 && currentUtm.get('hour') <= 10)
-    || (currentUtm.get('hour') >= 2 && currentUtm.get('hour') <= 4)) {
+  if (
+      ((currentUtm.get('hour') >= 2) && (currentUtm.get('hour') <= 4))
+  || ((currentUtm.get('hour') >= 9) && (currentUtm.get('hour') <= 10))
+  || ((currentUtm.get('hour') >= 13) && (currentUtm.get('hour') <= 17))
+  // || (currentUtm.get('hour') >= 2 && currentUtm.get('hour') <= 4)
+    ) {
     inHoursToTrade = true;
   }
   return inHoursToTrade;
@@ -124,8 +131,10 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
   const trades = [];
   let lastCrossUtm = null;
   let winningTrades = 0;
+  let winningProfit = 0;
   let exitedWinningTrades = 0;
   let loosingTrades = 0;
+  let loosingProfit = 0;
   let exitedLoosingTrades = 0;
   let drawTrades = 0;
   let totalProfit = 0;
@@ -160,6 +169,7 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
           currentRes.exitProfit = SL;
           currentRes.exitUtm = value.utm;
           loosingTrades++;
+          loosingProfit += SL;
           totalProfit += currentRes.exitProfit;
         }
         if (currentRes.win >= TP && !currentRes.stopped && !currentRes.targetHit) {
@@ -168,6 +178,7 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
           currentRes.exitProfit = TP;
           currentRes.exitUtm = value.utm;
           winningTrades++;
+          winningProfit += TP;
           totalProfit += currentRes.exitProfit;
         }
         currentRes.winTime = currentRes.cross === 'XUP' ? currentRes.highTime : currentRes.lowTime;
@@ -185,11 +196,13 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
               drawTrades++;
             } else if (result[lastCrossUtm].exitProfit > 0) {
               exitedWinningTrades++;
+              winningProfit += result[lastCrossUtm].exitProfit;
             } else if (result[lastCrossUtm].exitProfit < 0) {
               exitedLoosingTrades++;
+              loosingProfit += result[lastCrossUtm].exitProfit;
             }
           }
-          // log.info(result[lastCrossUtm]);
+          //log.info(result[lastCrossUtm]);
           trades.push(result[lastCrossUtm]);
         }
         if (isTradingHours(value.utm)) {
@@ -217,7 +230,9 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
   cb(null, {
     stats: {
       winningTrades,
+      winningProfit,
       loosingTrades,
+      loosingProfit,
       drawTrades,
       exitedLoosingTrades,
       exitedWinningTrades,
@@ -277,6 +292,8 @@ const analyseWeeks = (weeks, sma, stopLoss, targetProfit, cb) => {
     loosingTrades: 0,
     exitedLoosingTrades: 0,
     drawTrades: 0,
+    winningProfit: 0,
+    loosingProfit: 0,
     totalProfit: 0,
   };
   const results = [];
@@ -291,23 +308,38 @@ const analyseWeeks = (weeks, sma, stopLoss, targetProfit, cb) => {
       globalResult.loosingTrades += res.loosingTrades;
       globalResult.exitedLoosingTrades += res.exitedLoosingTrades;
       globalResult.drawTrades += res.drawTrades;
+      globalResult.winningProfit += res.winningProfit;
+      globalResult.loosingProfit += res.loosingProfit;
       globalResult.totalProfit += res.totalProfit;
       trades.push(...resAnalyse.trades);
       callback(err);
     });
   }, (err) => {
+    const winRatio = (globalResult.winningTrades + globalResult.exitedWinningTrades) / trades.length;
+    const lossRatio = 1 - winRatio;
+    const averageWin = globalResult.winningProfit / (globalResult.winningTrades + globalResult.exitedWinningTrades);
+    const averageLoss = globalResult.loosingProfit / (globalResult.loosingTrades + globalResult.exitedLoosingTrades);
+    // log.info(`${winRatio}, ${lossRatio}`);
+    log.info(`${averageWin}, ${averageLoss}`);
+    const RR = averageWin / averageLoss;
+    // log.info(`${RR}`);
+    const exp = (1 + RR) * (winRatio - 1);
+    globalResult.exp = exp;
     cb(err, { results, globalResult, trades });
   });
 };
 
-
 const runAnalysis = (opt, cb) => {
   let bestStrategy = null;
+  let bestStrategyExp = null;
+  let weekResultsExp;
   let weekResults;
   let trades;
   async.eachSeries(opt.sma_values, (sma, callback) => {
+    log.profile(`SMA-${opt.sma_values}`);
     let currentTp = opt.tp_range[0];
     const endTp = opt.tp_range[1];
+    let bestSmaStrategyExp = null;
     let bestSmaStrategy = null;
     async.whilst(
       () => currentTp <= endTp,
@@ -318,7 +350,7 @@ const runAnalysis = (opt, cb) => {
           () => currentSl <= endSl,
           (nextSl) => {
             analyseWeeks(opt.weeks, sma, currentSl, currentTp, (err, res) => {
-              log.info(`Total profit sma:${sma} sl:${currentSl} tp:${currentTp} profit:${res.globalResult.totalProfit}`);
+              log.info(`Total profit sma:${sma} sl:${currentSl} tp:${currentTp} profit:${res.globalResult.totalProfit} exp: ${res.globalResult.exp}`);
               if (!bestStrategy || bestStrategy.totalProfit < res.globalResult.totalProfit) {
                 bestStrategy = res.globalResult;
                 weekResults = res.results;
@@ -326,6 +358,14 @@ const runAnalysis = (opt, cb) => {
               }
               if (!bestSmaStrategy || bestSmaStrategy.totalProfit < res.globalResult.totalProfit) {
                 bestSmaStrategy = res.globalResult;
+              }
+              if (!bestStrategyExp || bestStrategyExp.exp < res.globalResult.exp) {
+                bestStrategyExp = res.globalResult;
+                weekResultsExp = res.results;
+                trades = res.trades;
+              }
+              if (!bestSmaStrategyExp || bestSmaStrategyExp.exp < res.globalResult.exp) {
+                bestSmaStrategyExp = res.globalResult;
               }
               currentSl++;
               nextSl(err);
@@ -336,22 +376,26 @@ const runAnalysis = (opt, cb) => {
           });
       }, (err) => {
         log.info('Best sma strategy', bestSmaStrategy);
+        log.info('Best Exp sma strategy', bestSmaStrategyExp);
+        log.profile(`SMA-${opt.sma_values}`);
         callback(err);
       });
   }, (err) => {
-    cb(err, { bestStrategy, weekResults, trades });
+    cb(err, { bestStrategy, bestStrategyExp, weekResults, weekResultsExp, trades });
   });
 };
 
 runAnalysis({
   tp_range: [15, 30],
-  sl_range: [-15, -5],
+  sl_range: [-30, -15],
   weeks: WEEKS,
-  sma_values: [30, 45, 50, 60],
+  sma_values: [45],
 }, (err, result) => {
   log.info(result.weekResults);
   log.info(result.trades.length);
+  log.info(result.weekResultsExp);
   log.info(result.bestStrategy);
+  log.info(result.bestStrategyExp);
   const toCsv = [];
   _.forEach(result.trades, (value) => {
     toCsv.push({
