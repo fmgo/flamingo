@@ -217,14 +217,14 @@ const aggregateQuoteFromTick = (opt, cb) => {
  */
 const aggregateFromMinuteQuote = (opt, cb) => {
   const resolution = opt.resolution;
-  const to = opt.utm.utc().toDate();
-  const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
-    .toDate();
+  // const to = opt.utm.utc().toDate();
+  // const from = opt.utm.clone().subtract(resolution.nbUnit, resolution.unit).utc()
+  //   .toDate();
   db.collection('Quote')
     .aggregate([{
       $match: {
         epic: opt.epic,
-        utm: { $gte: from, $lt: to },
+        utm: opt.utm,
         resolution: '1MINUTE',
       },
     },
@@ -267,10 +267,7 @@ const aggregateFromMinuteQuote = (opt, cb) => {
           bidClose: { $last: '$bidClose' },
         },
       },
-    ])
-    .sort({ utm: -1 })
-    .limit(1)
-    .next((err, res) => {
+    ], (err, res) => {
       if (err || !res) {
         cb(err || 'No Quote aggregated');
       } else {
@@ -280,7 +277,7 @@ const aggregateFromMinuteQuote = (opt, cb) => {
           quote.epic = opt.epic;
           quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
           if (opt.upsert) {
-            log.verbose('Persist quote', quote);
+            log.info('Persist quote', quote);
             db.collection('Quote').updateOne({
               utm: moment(quote.utm).toDate(),
               resolution: quote.resolution,
@@ -293,15 +290,15 @@ const aggregateFromMinuteQuote = (opt, cb) => {
           cb(errorPersist, res);
         });
       }
-      const quote = res;
-      delete quote._id;
-      quote.epic = opt.epic;
-      quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
-      if (opt.upsert) {
-        log.verbose('Persist quote');
-        db.collection('Quote').insertOne(quote);
-      }
-      cb(err, quote);
+      // const quote = res;
+      // delete quote._id;
+      // quote.epic = opt.epic;
+      // quote.resolution = `${opt.resolution.nbUnit}${opt.resolution.unit.toUpperCase()}`;
+      // if (opt.upsert) {
+      //   log.verbose('Persist quote');
+      //   db.collection('Quote').insertOne(quote);
+      // }
+      // cb(err, quote);
     });
 };
 

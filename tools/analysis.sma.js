@@ -25,10 +25,11 @@ log.add(log.transports.Console, {
 
 const DB_URL = 'mongodb://localhost:27017/fmgo-backtest';
 
-const EPIC = 'CS.D.EURUSD.MINI.IP';
+const EPIC = 'CS.D.AUDUSD.MINI.IP';
 const reso = {nbUnit: 15, unit: 'minute'};
 const RESOLUTION = `${reso.nbUnit}${reso.unit.toUpperCase()}`;
-const SPREAD = 0.00007;
+const PIP_VALUE = 10000;
+const SPREAD = 0.00009;
 
 const FROM = '2016-11-28 00:00:00';
 const TO = '2016-12-02 21:00:00';
@@ -41,41 +42,53 @@ const SL_VALUES = [-10, -2];
 
 const WEEKS = [
   {
-    start: '2016-10-10 06:30:00',
-    end: '2016-10-14 21:00:00',
+    start: '2016-09-10 00:00:00',
+    end: '2016-09-16 00:00:00',
   },
   {
-    start: '2016-10-17 00:00:00',
-    end: '2016-10-21 21:00:00',
+    start: '2016-09-17 00:00:00',
+    end: '2016-09-24 00:00:00',
   },
   {
-    start: '2016-10-24 00:00:00',
-    end: '2016-10-28 21:00:00',
+    start: '2016-10-01 00:00:00',
+    end: '2016-10-08 00:00:00',
   },
   {
-    start: '2016-11-01 09:00:00',
-    end: '2016-11-04 21:00:00',
+    start: '2016-10-08 00:00:00',
+    end: '2016-10-15 00:00:00',
   },
   {
-    start: '2016-11-07 00:00:00',
-    end: '2016-11-11 21:00:00',
+    start: '2016-10-15 00:00:00',
+    end: '2016-10-22 00:00:00',
   },
   {
-    start: '2016-11-14 00:00:00',
-    end: '2016-11-18 21:00:00',
+    start: '2016-10-22 00:00:00',
+    end: '2016-10-29 00:00:00',
   },
   {
-    start: '2016-11-21 00:00:00',
-    end: '2016-11-25 21:00:00',
+    start: '2016-10-29 00:00:00',
+    end: '2016-11-05 00:00:00',
   },
   {
-    start: '2016-11-28 00:00:00',
-    end: '2016-12-02 21:00:00',
+    start: '2016-11-05 00:00:00',
+    end: '2016-11-12 00:00:00',
   },
   {
-    start: '2016-12-03 00:00:00',
-    end: '2016-12-10 00:00:00',
+    start: '2016-11-12 00:00:00',
+    end: '2016-11-19 21:00:00',
   },
+  {
+    start: '2016-11-19 00:00:00',
+    end: '2016-11-26 00:00:00',
+  },
+  // {
+  //   start: '2016-11-26 00:00:00',
+  //   end: '2016-12-03 00:00:00',
+  // },
+  // {
+  //   start: '2016-12-03 00:00:00',
+  //   end: '2016-12-10 00:00:00',
+  // },
 ];
 
 /**
@@ -106,7 +119,7 @@ const checkCross = (prevValShort, prevValLong, currentValShort, currentValLong) 
 const getPrice = (quote) => parseFloat((quote.bidClose + ((quote.askClose - quote.bidClose) / 2)).toFixed(5));
 
 const calcNbPip = (cross, crossPrice, currentPrice) => {
-  let currentPipProfit = ((crossPrice - currentPrice) * 10000).toFixed(1);
+  let currentPipProfit = ((crossPrice - currentPrice) * PIP_VALUE).toFixed(1);
   currentPipProfit = cross === 'XUP' ?
   1 * currentPipProfit :
   -1 * currentPipProfit;
@@ -117,14 +130,14 @@ const isTradingHours = (utm) => {
   const currentUtm = moment(utm);
   let inHoursToTrade = false;
   if (
-      ((currentUtm.get('hour') >= 2) && (currentUtm.get('hour') <= 4))
-  || ((currentUtm.get('hour') >= 9) && (currentUtm.get('hour') <= 10))
-  || ((currentUtm.get('hour') >= 13) && (currentUtm.get('hour') <= 17))
-  // || (currentUtm.get('hour') >= 2 && currentUtm.get('hour') <= 4)
+      ((currentUtm.get('hour') >= 2) && (currentUtm.get('hour') <= 5))
+  || ((currentUtm.get('hour') >= 8) && (currentUtm.get('hour') <= 10))
+  || ((currentUtm.get('hour') >= 13) && (currentUtm.get('hour') <= 16))
+  || (currentUtm.get('hour') >= 18 && currentUtm.get('hour') <= 21)
     ) {
     inHoursToTrade = true;
   }
-  return inHoursToTrade;
+  return true;
 };
 
 const analyseSma = (quotes, sma, SL, TP, cb) => {
@@ -254,7 +267,7 @@ const analyseWeek = (week, maValue, stopLoss, targetProfit, cb) => {
         db.collection('Quote')
           .find({
             epic: EPIC,
-            utm: { $gte: moment(from).subtract(maValue * reso.nbUnit, 'minute').toDate(), $lt: moment(to).toDate() },
+            utm: { $gte: moment(from).toDate(), $lt: moment(to).toDate() },
             resolution: RESOLUTION,
           }, { _id: 0 })
           .sort({ utm: 1 })
@@ -362,7 +375,6 @@ const runAnalysis = (opt, cb) => {
               if (!bestStrategyExp || bestStrategyExp.exp < res.globalResult.exp) {
                 bestStrategyExp = res.globalResult;
                 weekResultsExp = res.results;
-                trades = res.trades;
               }
               if (!bestSmaStrategyExp || bestSmaStrategyExp.exp < res.globalResult.exp) {
                 bestSmaStrategyExp = res.globalResult;
@@ -386,10 +398,10 @@ const runAnalysis = (opt, cb) => {
 };
 
 runAnalysis({
-  tp_range: [15, 30],
-  sl_range: [-30, -15],
+  tp_range: [5, 30],
+  sl_range: [-30, -5],
   weeks: WEEKS,
-  sma_values: [45],
+  sma_values: [30, 45, 50],
 }, (err, result) => {
   log.info(result.weekResults);
   log.info(result.trades.length);
