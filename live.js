@@ -14,11 +14,11 @@ const EPIC = argv.epic || 'CS.D.EURUSD.MINI.IP';
 /**
  * Init the logger
  */
-const logOpt = config.logOpt || {};
+// const logOpt = config.logOpt || {};
 log.remove(log.transports.Console);
 log.add(log.transports.Console, config.logOpt);
-logOpt.filename = `${EPIC}.log` || 'default.log';
-log.add(log.transports.File, logOpt);
+// logOpt.filename = `${EPIC}.log` || 'default.log';
+// log.add(log.transports.File, logOpt);
 
 /**
  * Connect to database

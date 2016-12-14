@@ -75,6 +75,9 @@ class Trader {
             } else {
               fmgOutils.getReport(results, (errReport, report) => {
                 log.info(report);
+                fmgOutils.pushReport(report, (errNotify, resultPush) => {
+                  log.info(errNotify, resultPush);
+                });
               });
             }
           });
@@ -275,6 +278,7 @@ class Trader {
    */
   handleSignals(broker, ctx, callback) {
     log.info('Handle Signals', ctx.epic);
+
     const context = ctx;
     /**
      * Reset the orders

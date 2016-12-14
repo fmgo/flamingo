@@ -6,6 +6,8 @@
 const moment = require('moment');
 const log = require('winston');
 const _ = require('lodash');
+const push = require('pushover-notifications');
+const config = require('../config');
 
 /**
  * Calculate the position profit
@@ -115,9 +117,46 @@ const isMarketOpen = (utm) => {
   return isOpen;
 };
 
+const pushReport = (report, cb) => {
+  const p = new push({
+    user: config.PUSHOVER_USER,
+    token: config.PUSHOVER_TOKEN,
+  });
+  if (report.openPos === 'YES') {
+    const msg = {
+      // These values correspond to the parameters detailed on https://pushover.net/api
+      // 'message' is required. All other values are optional.
+      message: `Open Position: ${report.epic}`,	// required
+    };
+
+    p.send(msg, (err, result) => {
+      if (err) {
+        cb(err);
+      }
+      cb(null, result);
+    });
+  } else if (report.closePos === 'YES') {
+    const msg = {
+      // These values correspond to the parameters detailed on https://pushover.net/api
+      // 'message' is required. All other values are optional.
+      message: `Close Position: ${report.epic}`,	// required
+    };
+
+    p.send(msg, (err, result) => {
+      if (err) {
+        cb(err);
+      }
+      cb(null, result);
+    });
+  } else {
+    cb();
+  }
+};
+
 exports.getPipProfit = getPipProfit;
 exports.calcPositionSize = calcPositionSize;
 exports.isPositionStopped = isPositionStopped;
 exports.getReport = getReport;
 exports.isMarketOpen = isMarketOpen;
 exports.isTradingHours = isTradingHours;
+exports.pushReport = pushReport;
