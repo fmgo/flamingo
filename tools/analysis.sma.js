@@ -23,64 +23,58 @@ log.add(log.transports.Console, {
   humanReadableUnhandledException: true,
 });
 
-const DB_URL = 'mongodb://localhost:27017/fmgo-backtest';
+const DB_URL = 'mongodb://192.168.0.50:27017/fmgo';
+// const DB_URL = 'mongodb://localhost:27017/fmgo-backtest';
 
-const EPIC = 'CS.D.AUDUSD.MINI.IP';
+const EPIC = 'CS.D.EURUSD.MINI.IP';
 const reso = {nbUnit: 15, unit: 'minute'};
 const RESOLUTION = `${reso.nbUnit}${reso.unit.toUpperCase()}`;
 const PIP_VALUE = 10000;
 const SPREAD = 0.00009;
 
-const FROM = '2016-11-28 00:00:00';
-const TO = '2016-12-02 21:00:00';
-
 const MA_TYPE = 'SMA';
-const MA_VALUE = '10';
-
-const TP_VALUES = [2, 10];
-const SL_VALUES = [-10, -2];
 
 const WEEKS = [
-  {
-    start: '2016-09-10 00:00:00',
-    end: '2016-09-16 00:00:00',
-  },
-  {
-    start: '2016-09-17 00:00:00',
-    end: '2016-09-24 00:00:00',
-  },
-  {
-    start: '2016-10-01 00:00:00',
-    end: '2016-10-08 00:00:00',
-  },
-  {
-    start: '2016-10-08 00:00:00',
-    end: '2016-10-15 00:00:00',
-  },
-  {
-    start: '2016-10-15 00:00:00',
-    end: '2016-10-22 00:00:00',
-  },
-  {
-    start: '2016-10-22 00:00:00',
-    end: '2016-10-29 00:00:00',
-  },
-  {
-    start: '2016-10-29 00:00:00',
-    end: '2016-11-05 00:00:00',
-  },
-  {
-    start: '2016-11-05 00:00:00',
-    end: '2016-11-12 00:00:00',
-  },
-  {
-    start: '2016-11-12 00:00:00',
-    end: '2016-11-19 21:00:00',
-  },
-  {
-    start: '2016-11-19 00:00:00',
-    end: '2016-11-26 00:00:00',
-  },
+  // {
+  //   start: '2016-09-10 00:00:00',
+  //   end: '2016-09-16 00:00:00',
+  // },
+  // {
+  //   start: '2016-09-17 00:00:00',
+  //   end: '2016-09-24 00:00:00',
+  // },
+  // {
+  //   start: '2016-10-01 00:00:00',
+  //   end: '2016-10-08 00:00:00',
+  // },
+  // {
+  //   start: '2016-10-08 00:00:00',
+  //   end: '2016-10-15 00:00:00',
+  // },
+  // {
+  //   start: '2016-10-15 00:00:00',
+  //   end: '2016-10-22 00:00:00',
+  // },
+  // {
+  //   start: '2016-10-22 00:00:00',
+  //   end: '2016-10-29 00:00:00',
+  // },
+  // {
+  //   start: '2016-10-29 00:00:00',
+  //   end: '2016-11-05 00:00:00',
+  // },
+  // {
+  //   start: '2016-11-05 00:00:00',
+  //   end: '2016-11-12 00:00:00',
+  // },
+  // {
+  //   start: '2016-11-12 00:00:00',
+  //   end: '2016-11-19 21:00:00',
+  // },
+  // {
+  //   start: '2016-11-19 00:00:00',
+  //   end: '2016-11-26 00:00:00',
+  // },
   // {
   //   start: '2016-11-26 00:00:00',
   //   end: '2016-12-03 00:00:00',
@@ -89,21 +83,12 @@ const WEEKS = [
   //   start: '2016-12-03 00:00:00',
   //   end: '2016-12-10 00:00:00',
   // },
+  {
+    start: '2016-12-11 20:00:00',
+    end: '2016-12-14 00:15:00',
+  },
 ];
 
-/**
- * Calc if two values crosses
- * If val Short (eg. Price or Short sma) cross up
- * val Long (eg. Sma for price or Sma Long) it return XUP
- * Else if valShort cross down val Long it return XDOWN
- * else it return null
- *
- * @param {Number} prevValShort The previous (n-1) Short value
- * @param {Number} prevValLong The previous (n-1) Long Value
- * @param {Number} currentValShort The current short value
- * @param {Number} currentValLong The current long value
- * @returns {String} [Signal=null] Return 'XUP' || 'XDOWN'
- */
 const checkCross = (prevValShort, prevValLong, currentValShort, currentValLong) => {
   let result = null;
   if (prevValShort && prevValLong && currentValShort && currentValLong) {
@@ -127,17 +112,17 @@ const calcNbPip = (cross, crossPrice, currentPrice) => {
 };
 
 const isTradingHours = (utm) => {
-  const currentUtm = moment(utm);
+  const currentUtm = moment(utm).add(reso.nbUnit, reso.unit);
   let inHoursToTrade = false;
   if (
-      ((currentUtm.get('hour') >= 2) && (currentUtm.get('hour') <= 5))
-  || ((currentUtm.get('hour') >= 8) && (currentUtm.get('hour') <= 10))
-  || ((currentUtm.get('hour') >= 13) && (currentUtm.get('hour') <= 16))
-  || (currentUtm.get('hour') >= 18 && currentUtm.get('hour') <= 21)
+      ((currentUtm.get('hour') >= 2) && (currentUtm.get('hour') <= 4))
+  || ((currentUtm.get('hour') >= 9) && (currentUtm.get('hour') <= 10))
+  || ((currentUtm.get('hour') >= 13) && (currentUtm.get('hour') <= 17))
+  // || (currentUtm.get('hour') >= 18 && currentUtm.get('hour') <= 21)
     ) {
     inHoursToTrade = true;
   }
-  return true;
+  return inHoursToTrade;
 };
 
 const analyseSma = (quotes, sma, SL, TP, cb) => {
@@ -219,6 +204,7 @@ const analyseSma = (quotes, sma, SL, TP, cb) => {
           trades.push(result[lastCrossUtm]);
         }
         if (isTradingHours(value.utm)) {
+          log.info('ENTER', moment(value.utm).add(reso.nbUnit, reso.unit).format());
           lastCrossUtm = value.utm;
           const enterPrice = cross === 'XUP' ? (quotes[key + 1].bidOpen + SPREAD) : (quotes[key + 1].askOpen - SPREAD);
           const currentHigLow = cross === 'XUP' ? quotes[key + 1].askOpen : quotes[key + 1].bidOpen;
@@ -295,7 +281,7 @@ const analyseWeek = (week, maValue, stopLoss, targetProfit, cb) => {
     }], cb);
 };
 
-const analyseWeeks = (weeks, sma, stopLoss, targetProfit, cb) => {
+const analyseWeeks = (weeks, sma, stopLoss, targetProfit, trailingStop, cb) => {
   const globalResult = {
     sma,
     stopLoss,
@@ -362,7 +348,7 @@ const runAnalysis = (opt, cb) => {
         async.whilst(
           () => currentSl <= endSl,
           (nextSl) => {
-            analyseWeeks(opt.weeks, sma, currentSl, currentTp, (err, res) => {
+            analyseWeeks(opt.weeks, sma, currentSl, currentTp, currentSl, (err, res) => {
               log.info(`Total profit sma:${sma} sl:${currentSl} tp:${currentTp} profit:${res.globalResult.totalProfit} exp: ${res.globalResult.exp}`);
               if (!bestStrategy || bestStrategy.totalProfit < res.globalResult.totalProfit) {
                 bestStrategy = res.globalResult;
@@ -398,10 +384,10 @@ const runAnalysis = (opt, cb) => {
 };
 
 runAnalysis({
-  tp_range: [5, 30],
-  sl_range: [-30, -5],
+  tp_range: [18, 18],
+  sl_range: [-22, -22],
   weeks: WEEKS,
-  sma_values: [30, 45, 50],
+  sma_values: [45],
 }, (err, result) => {
   log.info(result.weekResults);
   log.info(result.trades.length);
@@ -410,10 +396,11 @@ runAnalysis({
   log.info(result.bestStrategyExp);
   const toCsv = [];
   _.forEach(result.trades, (value) => {
+    const enterDate = moment(value.startUtm);
     toCsv.push({
-      enterDate: moment(value.startUtm).format(),
-      dayOfWeek: moment(value.startUtm).format('e'),
-      hour: moment(value.startUtm).format('HH'),
+      enterDate: enterDate.format(),
+      dayOfWeek: enterDate.format('e'),
+      hour: enterDate.format('HH'),
       direction: value.cross,
       // enterPrice: value.enterPrice,
       // exitDate: moment(value.exitUtm).format(),
